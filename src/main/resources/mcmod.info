@@ -1,0 +1,16 @@
+[
+{
+  "modid": "greencloud",
+  "name": "Green Cloud",
+  "description": "Green.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["KingCanvas, SparkyEclipse, Qloha, criminal cat, clilys"],
+  "credits": "KingCanvas, SparkyEclipseXD, Qloha, Criminal Cat, clilys",
+  "logoFile": "https://github.com/KingCanvas02437/GreenCloud/blob/a606c19e40cc38b3da7842564c56e3653477bff2/src/main/resources/assets/greencloud/logo/greencloudlogo.png",
+  "screenshots": [],
+  "dependencies": []
+}
+]
