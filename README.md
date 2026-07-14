@@ -1,6 +1,15 @@
 # GreenCloudOpenSource
 Yeah, greencloud opensourced your welcome. just for you skidders (jk).
 
+# Contributors
+Contributors to the project:
+- Founder - kingcanvas / _kingdev.
+- Founder - SparkyEclipseXD
+- Founder - aslam.xyz
+- Lead Developer - clilys
+- Developer - qloha
+- Developer - ozzi.one (Criminal Cat)
+
 dif didn't take this from lb
 
 # License
