@@ -4,8 +4,8 @@ public enum Category {
     COMBAT("Combat"),
     RENDER("Render"),
     MOVEMENT("Movement"),
-    UTILITY("Utility"),
-    MISC("Misc");
+    UTILITY("Utility");
+    //MISC("Misc");
 
     private final String displayName;
 

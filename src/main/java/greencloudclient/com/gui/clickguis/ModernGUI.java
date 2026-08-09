@@ -36,7 +36,7 @@ public class ModernGUI extends GuiScreen {
         if (panels.isEmpty()) {
             int startX = 20;
             for (Category category : Category.values()) {
-                if (category == Category.MISC) continue;
+                //if (category == Category.MISC) continue;
                 panels.add(new Panel(category, startX, 20));
                 startX += 135;
             }

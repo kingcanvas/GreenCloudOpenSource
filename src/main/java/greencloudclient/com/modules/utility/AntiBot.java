@@ -12,20 +12,23 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class AntiBot extends Module {
+    
+    // I SWEAR if i see MORE claude spacing in any file ima crash out...
 
     public static AntiBot instance;
 
     private final BooleanSetting invalidGround = new BooleanSetting("Invalid Ground",  this, true);
-    private final BooleanSetting noTablist = new BooleanSetting("No Tablist",      this, true);
-    private final BooleanSetting invalidPing = new BooleanSetting("Invalid Ping",    this, true);
-    private final BooleanSetting duplicateName = new BooleanSetting("Duplicate Name",  this, true);
-    private final BooleanSetting gamemodCheck = new BooleanSetting("Gamemode Check",  this, true);
-    private final BooleanSetting selfCheck = new BooleanSetting("Self Check",      this, true);
+    private final BooleanSetting noTablist = new BooleanSetting("No Tablist", this, true);
+    private final BooleanSetting invalidPing = new BooleanSetting("Invalid Ping", this, true);
+    private final BooleanSetting duplicateName = new BooleanSetting("Duplicate Name", this, true);
+    private final BooleanSetting gamemodCheck = new BooleanSetting("Gamemode Check", this, true);
+    private final BooleanSetting selfCheck = new BooleanSetting("Self Check", this, true);
 
     private final Set<UUID> botCache = ConcurrentHashMap.newKeySet();
 
     public AntiBot() {
-        super("AntiBot", Category.MISC);
+        // why was this in misc?
+        super("AntiBot", Category.UTILITY);
         instance = this;
         addSettings(invalidGround, noTablist, invalidPing, duplicateName, gamemodCheck, selfCheck);
     }

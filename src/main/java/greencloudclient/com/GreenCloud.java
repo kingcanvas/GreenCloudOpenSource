@@ -31,7 +31,7 @@ import java.util.Date;
 public class GreenCloud {
 
     public static final String MODID = "GreenCloud";
-    public static final String VERSION = "V2.7";
+    public static final String VERSION = "V2.7.1";
     public static final String NAME = "GreenCloud";
 
     public static final Logger logger = Log.get("GreenCloud");

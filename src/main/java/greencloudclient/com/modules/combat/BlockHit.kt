@@ -13,10 +13,10 @@ import org.lwjgl.input.Mouse
 import java.security.SecureRandom
 
 class BlockHit : Module("BlockHit", Category.COMBAT) {
-
-    private val chance = NumberSetting("Chance %", this, 100.0, 0.0, 100.0, 1.0)
-    private val delay = NumberSetting("Delay",this, 0.0,   50.0,  0.0, 500.0, 1.0, true)
-    private val hold = NumberSetting("Hold",this, 40.0,  150.0, 0.0, 500.0, 1.0, true)
+    
+    private val chance = NumberSetting("Chance %", this, 80.0, 100.0, 0.0, 100.0, 1.0, true)
+    private val delay = NumberSetting("Delay", this, 0.0, 50.0, 0.0, 500.0, 1.0, true)
+    private val hold = NumberSetting("Hold", this, 40.0, 150.0, 0.0, 500.0, 1.0, true)
 
     private var blockTriggerTime: Long = -1
     private var releaseTriggerTime: Long = -1
@@ -55,7 +55,15 @@ class BlockHit : Module("BlockHit", Category.COMBAT) {
 
         if (player.swingProgressInt != 1) return false
 
-        return random.nextDouble() * 100 <= chance.getValue()
+        val chanceMin = chance.getValue()
+        val chanceMax = chance.maxValue
+        val actualChance = if (chanceMax > chanceMin) {
+            chanceMin + random.nextDouble() * (chanceMax - chanceMin)
+        } else {
+            chanceMin
+        }
+
+        return random.nextDouble() * 100 <= actualChance
     }
 
     private fun scheduleBlock() {
@@ -65,12 +73,12 @@ class BlockHit : Module("BlockHit", Category.COMBAT) {
         val delayMax = delay.maxValue.toLong()
 
         val waitMs = if (delayMax > delayMin) {
-            delayMin + (random.nextLong() % (delayMax - delayMin))
+            delayMin + random.nextDouble() * (delayMax - delayMin)
         } else {
             delayMin
         }
 
-        blockTriggerTime = System.currentTimeMillis() + waitMs
+        blockTriggerTime = System.currentTimeMillis() + waitMs.toLong()
     }
 
     private fun handleTimings() {
@@ -83,12 +91,12 @@ class BlockHit : Module("BlockHit", Category.COMBAT) {
             val holdMin = hold.getValue().toLong()
             val holdMax = hold.maxValue.toLong()
             val holdTime = if (holdMax > holdMin) {
-                holdMin + (random.nextLong() % (holdMax - holdMin))
+                holdMin + random.nextDouble() * (holdMax - holdMin)
             } else {
                 holdMin
             }
 
-            releaseTriggerTime = now + holdTime
+            releaseTriggerTime = now + holdTime.toLong()
         }
 
         if (releaseTriggerTime != -1L && now >= releaseTriggerTime) {
@@ -125,5 +133,3 @@ class BlockHit : Module("BlockHit", Category.COMBAT) {
         return if (entity is EntityLivingBase && !entity.isDead) entity else null
     }
 }
-
-//Thanks KingCanvas You're Goated! --SparkyEclipseXD

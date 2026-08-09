@@ -20,7 +20,7 @@ public class ConfigManager {
     
     public static final int CONFIG_VERSION = 2;
     
-    private final File configDirectory;
+    public final File configDirectory;
     private final Gson gson;
     
     public ConfigManager() {
