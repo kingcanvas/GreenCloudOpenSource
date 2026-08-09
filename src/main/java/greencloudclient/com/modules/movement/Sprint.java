@@ -12,6 +12,7 @@ public final class Sprint extends Module {
     
     public Sprint() {
         super("Sprint", Category.MOVEMENT);
+        addSettings(mode);
     }
     
     @SubscribeEvent

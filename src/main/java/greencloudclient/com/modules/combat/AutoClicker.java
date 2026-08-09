@@ -80,6 +80,12 @@ public class AutoClicker extends Module {
             delayAccumulator = 0.0;
             return;
         }
+        
+        if (Mouse.isButtonDown(1)) {
+            delayAccumulator = 0.0;
+            return;
+        }
+        
         if (mc.playerController != null && mc.playerController.getIsHittingBlock()) return;
         if (onlyWeapon.enabled && !isHoldingWeapon()) return;
         
