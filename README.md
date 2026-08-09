@@ -1,9 +1,13 @@
 # GreenCloudOpenSource
-Yeah, greencloud opensourced your welcome. just for you skidders (jk).
+Yeah, greencloudclient opensourced your welcome. just for you skidders (jk).
+
+# Active Developers
+For rn:
+- kingcanvas (_kingdev.)
 
 # Contributors
 Contributors to the project:
-- Founder - kingcanvas / _kingdev.
+- Founder - kingcanvas (_kingdev.)
 - Founder - SparkyEclipseXD
 - Founder - aslam.xyz
 - Lead Developer - clilys

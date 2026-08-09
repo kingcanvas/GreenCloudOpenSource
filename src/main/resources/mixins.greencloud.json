@@ -1,7 +1,7 @@
 {
   "required": true,
   "minVersion": "0.7.11",
-  "package": "greencloud.mixins",
+  "package": "greencloudclient.mixins",
   "compatibilityLevel": "JAVA_8",
   "refmap": "mixins.greencloud.refmap.json",
   "mixins": [
