@@ -16,7 +16,7 @@ public class ClickGUIModule extends Module {
     public final ModeSetting guiMode = new ModeSetting("Mode", this, "Modern", "Modern", "KingCanvas");
     //public final BooleanSetting glow = new BooleanSetting("Glow", this, true);
     //public final ColorSetting glowColor = new ColorSetting("Glow Color", this, new Color(46, 204, 113));
-    public final BooleanSetting blur = new BooleanSetting("Blur", this, true);
+    public final BooleanSetting blur = new BooleanSetting("Blur", this, false);
     public final NumberSetting blurStrength = new NumberSetting("Blur Strength", this, 10, 1, 30, 1, () -> blur.enabled);
 
     public ClickGUIModule() {

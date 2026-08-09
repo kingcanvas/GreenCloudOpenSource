@@ -32,25 +32,26 @@ import java.nio.IntBuffer;
 import java.util.*;
 
 public class BedPlates extends Module {
-
-    private final NumberSetting blurStrength   = new NumberSetting("Blur Strength",   this, 0,    0,    40,   1   );
+    
+    private final BooleanSetting blur = new BooleanSetting("Blur", this, false);
+    private final NumberSetting blurStrength   = new NumberSetting("Blur Strength",   this, 0,    0,    40,   1, () -> blur.enabled);
     private final NumberSetting bgAlpha        = new NumberSetting("BG Alpha",        this, 180,  0,    255,  5   );
     private final NumberSetting cornerRadius   = new NumberSetting("Corner Radius",   this, 8,    0,    16,   1   );
     private final NumberSetting iconScale      = new NumberSetting("Icon Scale",      this, 0.75, 0.3,  1.5,  0.05);
     private final BooleanSetting shadow        = new BooleanSetting("Shadow",         this, true );
     private final NumberSetting shadowStrength = new NumberSetting("Shadow Strength", this, 80,   0,    200,  5   );
-
+    
     private volatile List<Tag> tags = Collections.emptyList();
     private final    List<Tag> work = new ArrayList<>();
-
+    
     private int[]            qX, qZ;
     private int              qHead, qTail;
-
+    
     private int scanCd  = SCAN_CD;
     private int fastCd  = 0;
     private int defTick = 0;
     private int defPtr  = 0;
-
+    
     private static final int CHUNKS_PER_TICK = 6;
     private static final int SCAN_CD         = 40;
     private static final int FAST_CD         = 3;
@@ -58,22 +59,22 @@ public class BedPlates extends Module {
     private static final int DEF_CD          = 4;
     private static final int MAX_DIST        = 128;
     private static final int MAX_SEC         = 16;
-
+    
     private static final FloatBuffer S_BUF = BufferUtils.createFloatBuffer(3);
     private static final FloatBuffer M_BUF = BufferUtils.createFloatBuffer(16);
     private static final FloatBuffer P_BUF = BufferUtils.createFloatBuffer(16);
     private static final IntBuffer   V_BUF = BufferUtils.createIntBuffer(16);
-
+    
     private final BlockPos.MutableBlockPos defPos = new BlockPos.MutableBlockPos();
-
+    
     public BedPlates() {
         super("BedPlates", Category.RENDER);
-        addSettings(blurStrength, bgAlpha, cornerRadius, iconScale, shadow, shadowStrength);
+        addSettings(blur, blurStrength, bgAlpha, cornerRadius, iconScale, shadow, shadowStrength);
     }
-
+    
     @Override public void onEnable()  { super.onEnable();  reset(); }
     @Override public void onDisable() { super.onDisable(); reset(); }
-
+    
     private void reset() {
         tags = Collections.emptyList();
         work.clear();
@@ -82,28 +83,28 @@ public class BedPlates extends Module {
         scanCd = SCAN_CD;
         fastCd = defTick = defPtr = 0;
     }
-
+    
     @SubscribeEvent
     public void onTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.START || mc.thePlayer == null || mc.theWorld == null) return;
-
+        
         if (++fastCd >= FAST_CD) {
             fastCd = 0;
             patchNearby();
         }
-
+        
         if (++scanCd >= SCAN_CD && qHead == qTail) {
             scanCd = 0;
             buildQueue();
         }
-
+        
         int budget = CHUNKS_PER_TICK;
         while (qHead < qTail && budget-- > 0) {
             Chunk chunk = mc.theWorld.getChunkFromChunkCoords(qX[qHead], qZ[qHead]);
             qHead++;
             if (chunk.isLoaded()) scanChunk(chunk);
         }
-
+        
         if (qHead == qTail && qX != null) {
             Map<BlockPos, Tag> prev = buildLookup(tags);
             for (Tag t : work) {
@@ -121,14 +122,14 @@ public class BedPlates extends Module {
             defPtr = 0;
             qX = qZ = null;
         }
-
+        
         List<Tag> cur = tags;
         if (!cur.isEmpty() && ++defTick >= DEF_CD) {
             defTick = 0;
             if (defPtr >= cur.size()) defPtr = 0;
             cur.get(defPtr++).def = scanDef(cur.get(defPtr - 1).pos);
         }
-
+        
         double px = mc.thePlayer.posX, py = mc.thePlayer.posY, pz = mc.thePlayer.posZ;
         for (Tag t : cur) {
             double dx = t.pos.getX() + 0.5 - px;
@@ -137,7 +138,7 @@ public class BedPlates extends Module {
             t.dist = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
         }
     }
-
+    
     private void buildQueue() {
         int rd  = mc.gameSettings.renderDistanceChunks;
         int dia = 2 * rd + 1;
@@ -154,11 +155,11 @@ public class BedPlates extends Module {
             }
         work.clear();
     }
-
+    
     private void scanChunk(Chunk chunk) {
         collectBeds(chunk, work);
     }
-
+    
     private static void collectBeds(Chunk chunk, List<Tag> out) {
         ExtendedBlockStorage[] secs = chunk.getBlockStorageArray();
         int bx = chunk.xPosition << 4;
@@ -176,23 +177,23 @@ public class BedPlates extends Module {
             }
         }
     }
-
+    
     private void patchNearby() {
         int cx0 = (int) mc.thePlayer.posX >> 4;
         int cz0 = (int) mc.thePlayer.posZ >> 4;
-
+        
         List<Tag> found = new ArrayList<>();
         for (int x = -FAST_RAD; x <= FAST_RAD; x++) for (int z = -FAST_RAD; z <= FAST_RAD; z++) {
             Chunk chunk = mc.theWorld.getChunkFromChunkCoords(cx0 + x, cz0 + z);
             if (chunk.isLoaded()) collectBeds(chunk, found);
         }
-
+        
         int minBX = (cx0 - FAST_RAD) << 4, maxBX = ((cx0 + FAST_RAD) << 4) + 15;
         int minBZ = (cz0 - FAST_RAD) << 4, maxBZ = ((cz0 + FAST_RAD) << 4) + 15;
-
+        
         Set<BlockPos> foundSet = new HashSet<>(found.size() * 2);
         for (Tag t : found) foundSet.add(t.pos);
-
+        
         Map<BlockPos, Tag> existing = buildLookup(tags);
         List<Tag> patched = new ArrayList<>(tags);
         patched.removeIf(t -> {
@@ -207,7 +208,7 @@ public class BedPlates extends Module {
         }
         tags = patched;
     }
-
+    
     private List<ItemStack> scanDef(BlockPos bed) {
         Set<Item>       seen = new HashSet<>();
         List<ItemStack> out  = new ArrayList<>();
@@ -220,13 +221,13 @@ public class BedPlates extends Module {
         }
         return out;
     }
-
+    
     private static Map<BlockPos, Tag> buildLookup(List<Tag> list) {
         Map<BlockPos, Tag> m = new HashMap<>(list.size() * 2);
         for (Tag t : list) m.put(t.pos, t);
         return m;
     }
-
+    
     @SubscribeEvent
     public void onRenderWorld(RenderWorldLastEvent event) {
         if (mc.thePlayer == null) return;
@@ -241,31 +242,31 @@ public class BedPlates extends Module {
             t.screen = (s != null && s.z >= 0f && s.z < 1f) ? s : null;
         }
     }
-
+    
     @SubscribeEvent
     public void onRender2D(RenderGameOverlayEvent.Post event) {
         if (event.type != RenderGameOverlayEvent.ElementType.ALL) return;
         List<Tag> cur = tags;
         if (cur.isEmpty()) return;
-
+        
         List<Tag> vis = new ArrayList<>(cur.size());
         for (Tag t : cur) if (t.screen != null) vis.add(t);
         if (vis.isEmpty()) return;
-
+        
         vis.sort((a, b) -> Float.compare(b.dist, a.dist));
         for (Tag t : vis) drawTag(t);
     }
-
+    
     private void drawTag(Tag tag) {
         FontUtil.SafeFont bold = FontUtil.getSafeBold();
         float sc    = (float) iconScale.getValue();
         float iSz   = 16f * sc;
         float padX  = 8f, padY = 6f, gap = 4f;
         float fH    = bold.getHeight();
-
+        
         String lbl  = (int) tag.dist + "m";
         float  lblW = bold.getStringWidth(lbl);
-
+        
         List<ItemStack> def  = tag.def;
         float defW  = def.isEmpty() ? 0f : def.size() * iSz + (def.size() - 1) * 2f;
         float boxW  = padX * 2 + lblW + (def.isEmpty() ? 0f : gap + defW);
@@ -273,20 +274,20 @@ public class BedPlates extends Module {
         float r     = Math.min((float) cornerRadius.getValue(), boxH / 2f);
         float sx    = tag.screen.x - boxW / 2f;
         float sy    = tag.screen.y - boxH / 2f;
-
+        
         if (shadow.enabled)
             GreenRender.glowRR(sx, sy, boxW, boxH, r, 10f, new Color(0, 0, 0, (int) shadowStrength.getValue()));
-
-        if (blurStrength.getValue() > 0)
+        
+        if (blur.enabled && blurStrength.getValue() > 0)
             GreenRender.blurRounded(sx, sy, boxW, boxH, (float) blurStrength.getValue(), (int) r);
-
+        
         GreenRender.fillRR(sx, sy, boxW, boxH, r, new Color(0, 0, 0, (int) bgAlpha.getValue()).getRGB());
-
+        
         float cx   = sx + padX;
         float midY = sy + boxH / 2f;
         bold.drawString(lbl, (int) cx, (int)(midY - fH / 2f), 0xFFFFFFFF);
         cx += lblW + gap;
-
+        
         if (!def.isEmpty()) {
             RenderHelper.enableGUIStandardItemLighting();
             for (ItemStack stack : def) {
@@ -299,11 +300,11 @@ public class BedPlates extends Module {
             }
             RenderHelper.disableStandardItemLighting();
         }
-
+        
         GlStateManager.enableBlend();
         GlStateManager.color(1f, 1f, 1f, 1f);
     }
-
+    
     private static Vector3f proj(float x, float y, float z, int sf) {
         M_BUF.rewind(); P_BUF.rewind(); V_BUF.rewind(); S_BUF.rewind();
         GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX,  M_BUF);
@@ -313,13 +314,13 @@ public class BedPlates extends Module {
         if (!GLU.gluProject(x, y, z, M_BUF, P_BUF, V_BUF, S_BUF)) return null;
         return new Vector3f(S_BUF.get(0) / sf, (Display.getHeight() - S_BUF.get(1)) / sf, S_BUF.get(2));
     }
-
+    
     private static final class Tag {
         final BlockPos       pos;
         volatile List<ItemStack> def    = Collections.emptyList();
         volatile float           dist   = 0f;
         volatile Vector3f        screen = null;
-
+        
         Tag(BlockPos pos) { this.pos = pos; }
     }
 }

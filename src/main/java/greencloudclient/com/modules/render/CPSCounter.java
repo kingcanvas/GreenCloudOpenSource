@@ -22,7 +22,7 @@ public class CPSCounter extends Module {
     private final ModeSetting colorMode = new ModeSetting("Color Mode", this, "HUD", "HUD", "Custom");
     private final ColorSetting customColor = new ColorSetting("Custom Color", this, new Color(255, 255, 255), () -> colorMode.is("Custom"));
     private final BooleanSetting background = new BooleanSetting("Background", this, true);
-    private final BooleanSetting blur = new BooleanSetting("Blur", this, true, () -> background.enabled);
+    private final BooleanSetting blur = new BooleanSetting("Blur", this, false, () -> background.enabled);
 
     private static final List<Long> leftClicks = new ArrayList<>();
     private static final List<Long> rightClicks = new ArrayList<>();

@@ -26,7 +26,7 @@ import java.nio.IntBuffer;
 
 public class TargetHUD extends Module {
 
-    private final BooleanSetting blur = new BooleanSetting("Blur", this, true);
+    private final BooleanSetting blur = new BooleanSetting("Blur", this, false);
 
     private EntityLivingBase target;
     private float displayHealth = 0;

@@ -22,7 +22,7 @@ public class ArmorHUD extends Module {
 
     public final NumberSetting   posX         = new NumberSetting ("X",             this, 2,   0, 2000, 1, () -> false);
     public final NumberSetting   posY         = new NumberSetting ("Y",             this, 100, 0, 2000, 1, () -> false);
-    private final BooleanSetting blur         = new BooleanSetting("Blur",          this, true);
+    private final BooleanSetting blur         = new BooleanSetting("Blur",          this, false);
     private final NumberSetting  blurStrength = new NumberSetting ("Blur Strength", this, 0,  0, 40,   1);
     private final BooleanSetting background   = new BooleanSetting("Background",    this, true);
     private final NumberSetting  bgAlpha      = new NumberSetting ("BG Alpha",      this, 60,  0, 255,  5);
