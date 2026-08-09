@@ -103,7 +103,14 @@ public class KillAura extends Module {
                 legitFov, legitSpeed, legitRange, blockCheck
         );
     }
-
+    
+    @Override
+    public String[] getBindAliases() {
+        return new String[] {
+                "KillAura", "Aura"
+        };
+    }
+    
     @Override
     public void onEnable() {
         super.onEnable();

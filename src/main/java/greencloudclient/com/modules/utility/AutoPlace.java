@@ -1,7 +1,3 @@
-/*
-* Sparky don't change this.
-* this is for intave ac
-* */
 package greencloudclient.com.modules.utility;
 
 import greencloudclient.com.managers.notification.NotificationManager;

@@ -46,6 +46,13 @@ public class StreamerMode extends Module {
         super("StreamerMode", Category.UTILITY);
         addSettings(hideSelf, hideOthers, scramble, hideServerId);
     }
+    
+    @Override
+    public String[] getBindAliases() {
+        return new String[] {
+                "SteamerMode", "NickHider"
+        };
+    }
 
     @Override
     public void onEnable() {

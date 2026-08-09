@@ -52,9 +52,18 @@ public class InvManager extends Module {
             eventButtonField.setAccessible(true);
             buttonsField = Mouse.class.getDeclaredField("buttons");
             buttonsField.setAccessible(true);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        
+        }
     }
-
+    
+    @Override
+    public String[] getBindAliases() {
+        return new String[] {
+                "InvManager", "Manager", "InventoryManager"
+        };
+    }
+    
     @Override
     public void onEnable() {
         NotificationManager.getInstance().addNotification(

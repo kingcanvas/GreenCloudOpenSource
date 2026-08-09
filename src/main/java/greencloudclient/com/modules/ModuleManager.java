@@ -13,16 +13,16 @@ import java.util.Map;
 
 @SuppressWarnings("ALL")
 public class ModuleManager {
-
+    
     private static final Logger log = Log.get(ModuleManager.class);
-
+    
     private final List<Module> modules = new ArrayList<>();
     private final Map<Class<? extends Module>, Module> moduleMap = new HashMap<>();
     private final Map<Category, List<Module>> categoryCache = new HashMap<>();
-
+    
     public void init() {
         log.info("Discovering modules");
-
+        
         try {
             final ClassLoader loader = Thread.currentThread().getContextClassLoader();
             ClassPath classPath = ClassPath.from(loader);
@@ -45,20 +45,20 @@ public class ModuleManager {
         } catch (IOException e) {
             log.error("Failed to scan classpath for modules", e);
         }
-
+        
         log.info("ModuleManager initialized with " + modules.size() + " modules");
     }
-
+    
     private void addModule(Module module) {
         modules.add(module);
         moduleMap.put(module.getClass(), module);
         categoryCache.computeIfAbsent(module.getCategory(), k -> new ArrayList<>()).add(module);
     }
-
+    
     public List<Module> getModules() {
         return modules;
     }
-
+    
     public List<Module> getModulesInCategory(Category category) {
         return categoryCache.getOrDefault(category, new ArrayList<>());
     }
@@ -66,11 +66,17 @@ public class ModuleManager {
     public <T extends Module> T getModule(Class<T> clazz) {
         return (T) moduleMap.get(clazz);
     }
-
+    
     public Module getModuleByName(String name) {
         for (Module module : modules) {
             if (module.getName().replace(" ", "").equalsIgnoreCase(name.replace(" ", ""))) {
                 return module;
+            }
+            
+            for (String alias : module.getBindAliases()) {
+                if (alias.replace(" ", "").equalsIgnoreCase(name.replace(" ", ""))) {
+                    return module;
+                }
             }
         }
         return null;
