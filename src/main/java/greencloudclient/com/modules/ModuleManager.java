@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@SuppressWarnings("ALL")
 public class ModuleManager {
 
     private static final Logger log = Log.get(ModuleManager.class);
@@ -25,8 +26,8 @@ public class ModuleManager {
         try {
             final ClassLoader loader = Thread.currentThread().getContextClassLoader();
             ClassPath classPath = ClassPath.from(loader);
-
-            for (String pkg : new String[]{"greencloud.modules", "greencloud.impl.MinecraftUI"}) {
+            
+            for (String pkg : new String[]{"greencloudclient.com.modules"}) {
                 log.debug("Scanning package: " + pkg);
                 for (final ClassPath.ClassInfo info : classPath.getTopLevelClassesRecursive(pkg)) {
                     try {
@@ -61,8 +62,7 @@ public class ModuleManager {
     public List<Module> getModulesInCategory(Category category) {
         return categoryCache.getOrDefault(category, new ArrayList<>());
     }
-
-    @SuppressWarnings("unchecked")
+    
     public <T extends Module> T getModule(Class<T> clazz) {
         return (T) moduleMap.get(clazz);
     }
