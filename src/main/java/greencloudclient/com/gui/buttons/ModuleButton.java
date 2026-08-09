@@ -2,7 +2,7 @@ package greencloudclient.com.gui.buttons;
 
 import greencloudclient.com.GreenCloud;
 import greencloudclient.com.gui.clickguis.Panel;
-import greencloudclient.com.gui.clickgui.components.*;
+import greencloudclient.com.gui.components.*;
 import greencloudclient.com.gui.components.*;
 import greencloudclient.com.modules.Module;
 import greencloudclient.com.modules.render.HUD;
