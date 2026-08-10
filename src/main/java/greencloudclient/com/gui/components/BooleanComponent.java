@@ -2,7 +2,7 @@ package greencloudclient.com.gui.components;
 
 import greencloudclient.com.gui.buttons.ModuleButton;
 import greencloudclient.com.settings.BooleanSetting;
-import greencloudclient.com.modules.render.HUD;
+import greencloudclient.com.modules.impl.render.HUD;
 import greencloudclient.com.utils.render.AnimationUtil;
 import greencloudclient.com.utils.render.GreenRender;
 import greencloudclient.com.utils.font.FontUtil;

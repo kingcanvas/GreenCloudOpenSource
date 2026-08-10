@@ -131,12 +131,14 @@ public class GreenCloud {
 
         logger.info("Initializing " + NAME + " " + VERSION + " [" + ClientInfo.BUILD_TYPE.getName() + "]");
 
-        try {
-            discordRP = new DiscordRP();
-            ClientLoader.init();
-        } catch (Throwable e) {
-            logger.error("Discord RPC failed to load, feature disabled", e);
-            discordRP = null;
+        ClientLoader.init();
+        if (!AndroidUtil.isAndroid()) {
+            try {
+                discordRP = DiscordRP.getInstance();
+            } catch (Throwable e) {
+                logger.error("Discord RPC failed to load, feature disabled", e);
+                discordRP = null;
+            }
         }
 
         ClientLoader.loadModules();
@@ -154,6 +156,7 @@ public class GreenCloud {
         ClientLoader.initProcessors();
         ClientLoader.initGuis();
         ClientLoader.finishInit();
+        configManager.loadFavoriteConfig();
 
         clientInitialized = true;
         logger.info(NAME + " initialization complete");

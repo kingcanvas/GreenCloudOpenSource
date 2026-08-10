@@ -4,7 +4,7 @@ import greencloudclient.com.GreenCloud;
 import greencloudclient.com.managers.notification.NotificationManager;
 import greencloudclient.com.managers.notification.model.Notification;
 import greencloudclient.com.managers.notification.util.NotificationUtil;
-import greencloudclient.com.modules.render.HUD;
+import greencloudclient.com.modules.impl.render.HUD;
 import greencloudclient.com.utils.font.FontUtil;
 import greencloudclient.com.utils.render.RenderUtil;
 import greencloudclient.com.utils.render.GreenRender;

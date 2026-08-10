@@ -7,5 +7,7 @@
   "mixins": [
   ],
   "client":[
+    "MinecraftAccessor",
+    "GuiMainMenuMixin"
   ]
 }

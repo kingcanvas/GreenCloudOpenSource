@@ -9,7 +9,7 @@ import greencloudclient.com.utils.animation.animations.EasingAnimation.Easing;
 import greencloudclient.com.utils.render.GreenRender;
 import greencloudclient.com.utils.font.FontUtil;
 import greencloudclient.com.utils.render.shaders.BlurUtil;
-import greencloudclient.com.modules.render.ClickGUIModule;
+import greencloudclient.com.modules.impl.render.ClickGUIModule;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Comparator;

@@ -1,7 +1,7 @@
 package greencloudclient.com.gui.components;
 
 import greencloudclient.com.gui.buttons.ModuleButton;
-import greencloudclient.com.modules.render.HUD;
+import greencloudclient.com.modules.impl.render.HUD;
 import greencloudclient.com.settings.StringSetting;
 import greencloudclient.com.settings.Setting;
 import greencloudclient.com.utils.font.FontUtil;

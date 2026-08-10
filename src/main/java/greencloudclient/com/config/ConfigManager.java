@@ -10,6 +10,7 @@ import greencloudclient.com.settings.Setting;
 import net.minecraft.client.Minecraft;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,11 +22,13 @@ public class ConfigManager {
     public static final int CONFIG_VERSION = 2;
     
     public final File configDirectory;
+    private final File favoriteConfigFile;
     private final Gson gson;
     
     public ConfigManager() {
         File root = (GreenCloud.mainDir != null) ? GreenCloud.mainDir : Minecraft.getMinecraft().mcDataDir;
         this.configDirectory = new File(root, "configs");
+        this.favoriteConfigFile = new File(configDirectory, "favorite.txt");
         
         if (!configDirectory.exists()) {
             boolean created = configDirectory.mkdirs();
@@ -38,6 +41,34 @@ public class ConfigManager {
         
         this.gson = new GsonBuilder().setPrettyPrinting().create();
         log.info("ConfigManager initialized, config dir: " + configDirectory.getAbsolutePath());
+    }
+
+    public boolean setFavoriteConfig(String configName) {
+        try {
+            Files.write(favoriteConfigFile.toPath(), configName.getBytes(StandardCharsets.UTF_8));
+            log.info("Favorite config set: " + configName);
+            return true;
+        } catch (IOException e) {
+            log.error("Failed to set favorite config '" + configName + "'", e);
+            return false;
+        }
+    }
+
+    public void loadFavoriteConfig() {
+        if (!favoriteConfigFile.exists()) return;
+
+        try {
+            String favorite = new String(Files.readAllBytes(favoriteConfigFile.toPath()), StandardCharsets.UTF_8).trim();
+            for (String config : getConfigList()) {
+                if (config.equalsIgnoreCase(favorite)) {
+                    loadConfig(config);
+                    return;
+                }
+            }
+            log.warn("Favorite config not found: " + favorite);
+        } catch (IOException e) {
+            log.error("Failed to read favorite config", e);
+        }
     }
     
     public void saveConfig(String configName) {

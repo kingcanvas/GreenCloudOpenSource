@@ -1,10 +1,14 @@
 package greencloudclient.com.utils.render;
 
+import greencloudclient.com.utils.AndroidUtil;
 import greencloudclient.com.utils.font.FontUtil;
 import greencloudclient.com.utils.render.shaders.BlurUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.WorldRenderer;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
@@ -103,22 +107,30 @@ public final class GreenRender {
     private GreenRender() {}
 
     private static boolean ensureShader() {
+        if (AndroidUtil.isAndroid()) return false;
         if (prog != -1) return true;
+        int v = -1;
+        int f = -1;
         try {
-            int v = GL20.glCreateShader(GL20.GL_VERTEX_SHADER);
+            v = GL20.glCreateShader(GL20.GL_VERTEX_SHADER);
             GL20.glShaderSource(v, VERT);
             GL20.glCompileShader(v);
+            if (GL20.glGetShaderi(v, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) return false;
 
-            int f = GL20.glCreateShader(GL20.GL_FRAGMENT_SHADER);
+            f = GL20.glCreateShader(GL20.GL_FRAGMENT_SHADER);
             GL20.glShaderSource(f, FRAG);
             GL20.glCompileShader(f);
+            if (GL20.glGetShaderi(f, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) return false;
 
             prog = GL20.glCreateProgram();
             GL20.glAttachShader(prog, v);
             GL20.glAttachShader(prog, f);
             GL20.glLinkProgram(prog);
-            GL20.glDeleteShader(v);
-            GL20.glDeleteShader(f);
+            if (GL20.glGetProgrami(prog, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) {
+                GL20.glDeleteProgram(prog);
+                prog = -1;
+                return false;
+            }
 
             uResolution        = GL20.glGetUniformLocation(prog, "uResolution");
             uRect              = GL20.glGetUniformLocation(prog, "uRect");
@@ -136,10 +148,25 @@ public final class GreenRender {
 
             vbo = GL15.glGenBuffers();
             aPos = GL20.glGetAttribLocation(prog, "aPos");
+            if (vbo <= 0 || aPos < 0) {
+                if (vbo > 0) GL15.glDeleteBuffers(vbo);
+                GL20.glDeleteProgram(prog);
+                vbo = -1;
+                prog = -1;
+                aPos = -1;
+                return false;
+            }
             return true;
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            if (vbo > 0) GL15.glDeleteBuffers(vbo);
+            if (prog > 0) GL20.glDeleteProgram(prog);
+            vbo = -1;
             prog = -1;
+            aPos = -1;
             return false;
+        } finally {
+            if (v > 0) GL20.glDeleteShader(v);
+            if (f > 0) GL20.glDeleteShader(f);
         }
     }
 
@@ -192,6 +219,54 @@ public final class GreenRender {
         GL20.glUniform4f(loc, c.getRed()/255f, c.getGreen()/255f, c.getBlue()/255f, c.getAlpha()/255f);
     }
 
+    private static void fallbackRect(float x, float y, float w, float h, Color color) {
+        if (w <= 0 || h <= 0 || color.getAlpha() <= 0) return;
+        RenderUtil.drawRect(x, y, w, h, color.getRGB());
+    }
+
+    private static void fallbackGradient(float x, float y, float w, float h, Color first, Color second, boolean horizontal) {
+        if (w <= 0 || h <= 0) return;
+        if (horizontal) RenderUtil.drawGradientRectSideways(x, y, x + w, y + h, first.getRGB(), second.getRGB());
+        else RenderUtil.drawGradientRect(x, y, x + w, y + h, first.getRGB(), second.getRGB());
+    }
+
+    private static void fallbackStroke(float x, float y, float w, float h, float strokeWidth, Color fill, Color stroke) {
+        fallbackRect(x, y, w, h, fill);
+        float s = Math.max(0f, Math.min(strokeWidth, Math.min(w, h) * 0.5f));
+        if (s <= 0 || stroke.getAlpha() <= 0) return;
+        fallbackRect(x, y, w, s, stroke);
+        fallbackRect(x, y + h - s, w, s, stroke);
+        fallbackRect(x, y + s, s, h - s * 2, stroke);
+        fallbackRect(x + w - s, y + s, s, h - s * 2, stroke);
+    }
+
+    private static void fallbackLine(float x1, float y1, float x2, float y2, float thickness, Color color) {
+        float dx = x2 - x1;
+        float dy = y2 - y1;
+        float len = (float) Math.sqrt(dx * dx + dy * dy);
+        if (len <= 0 || thickness <= 0 || color.getAlpha() <= 0) return;
+        float nx = -dy / len * thickness * 0.5f;
+        float ny = dx / len * thickness * 0.5f;
+        float red = color.getRed() / 255f;
+        float green = color.getGreen() / 255f;
+        float blue = color.getBlue() / 255f;
+        float alpha = color.getAlpha() / 255f;
+        Tessellator tessellator = Tessellator.getInstance();
+        WorldRenderer renderer = tessellator.getWorldRenderer();
+        GlStateManager.enableBlend();
+        GlStateManager.disableTexture2D();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        renderer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+        renderer.pos(x1 + nx, y1 + ny, 0).color(red, green, blue, alpha).endVertex();
+        renderer.pos(x2 + nx, y2 + ny, 0).color(red, green, blue, alpha).endVertex();
+        renderer.pos(x2 - nx, y2 - ny, 0).color(red, green, blue, alpha).endVertex();
+        renderer.pos(x1 - nx, y1 - ny, 0).color(red, green, blue, alpha).endVertex();
+        tessellator.draw();
+        GlStateManager.enableTexture2D();
+        GlStateManager.disableBlend();
+        GlStateManager.color(1f, 1f, 1f, 1f);
+    }
+
     private static void render(float x, float y, float w, float h) {
         ScaledResolution sr = getSR();
 
@@ -229,7 +304,10 @@ public final class GreenRender {
     }
 
     public static void fillRR(float x, float y, float w, float h, float radius, Color color) {
-        if (!ensureShader()) return;
+        if (!ensureShader()) {
+            fallbackRect(x, y, w, h, color);
+            return;
+        }
         GL20.glUseProgram(prog);
         setDefaults(x, y, w, h, radius);
         applyColor(uColor, color);
@@ -242,7 +320,10 @@ public final class GreenRender {
 
     public static void fillRRCorners(float x, float y, float w, float h,
                                      float tl, float tr, float br, float bl, Color color) {
-        if (!ensureShader()) return;
+        if (!ensureShader()) {
+            fallbackRect(x, y, w, h, color);
+            return;
+        }
         GL20.glUseProgram(prog);
         setDefaults(x, y, w, h, 0);
         applyColor(uColor, color);
@@ -257,7 +338,10 @@ public final class GreenRender {
 
     public static void fillRRCornersHard(float x, float y, float w, float h,
                                          float tl, float tr, float br, float bl, Color color) {
-        if (!ensureShader()) return;
+        if (!ensureShader()) {
+            fallbackRect(x, y, w, h, color);
+            return;
+        }
         GL20.glUseProgram(prog);
         setDefaults(x, y, w, h, 0);
         GL20.glUniform1f(uSoftness, 0.5f);
@@ -272,7 +356,10 @@ public final class GreenRender {
     }
 
     public static void strokeRR(float x, float y, float w, float h, float radius, float strokeWidth, Color fill, Color stroke) {
-        if (!ensureShader()) return;
+        if (!ensureShader()) {
+            fallbackStroke(x, y, w, h, strokeWidth, fill, stroke);
+            return;
+        }
         GL20.glUseProgram(prog);
         setDefaults(x, y, w, h, radius);
         applyColor(uColor, fill);
@@ -294,7 +381,10 @@ public final class GreenRender {
     }
 
     public static void fillRRGradientH(float x, float y, float w, float h, float radius, Color left, Color right) {
-        if (!ensureShader()) return;
+        if (!ensureShader()) {
+            fallbackGradient(x, y, w, h, left, right, true);
+            return;
+        }
         GL20.glUseProgram(prog);
         setDefaults(x, y, w, h, radius);
         applyColor(uColor, left);
@@ -309,7 +399,10 @@ public final class GreenRender {
     }
 
     public static void fillRRGradientV(float x, float y, float w, float h, float radius, Color top, Color bottom) {
-        if (!ensureShader()) return;
+        if (!ensureShader()) {
+            fallbackGradient(x, y, w, h, top, bottom, false);
+            return;
+        }
         GL20.glUseProgram(prog);
         setDefaults(x, y, w, h, radius);
         applyColor(uColor, top);
@@ -326,7 +419,10 @@ public final class GreenRender {
     public static void fillRRCornersGradientV(float x, float y, float w, float h,
                                               float tl, float tr, float br, float bl,
                                               Color top, Color bottom) {
-        if (!ensureShader()) return;
+        if (!ensureShader()) {
+            fallbackGradient(x, y, w, h, top, bottom, false);
+            return;
+        }
         GL20.glUseProgram(prog);
         setDefaults(x, y, w, h, 0);
         applyColor(uColor, top);
@@ -392,7 +488,10 @@ public final class GreenRender {
         float len = (float) Math.sqrt(dx * dx + dy * dy);
         float nx = -dy / len * thickness * 0.5f;
         float ny =  dx / len * thickness * 0.5f;
-        if (!ensureShader()) return;
+        if (!ensureShader()) {
+            fallbackLine(x1, y1, x2, y2, thickness, color);
+            return;
+        }
         GL20.glUseProgram(prog);
         float minX = Math.min(x1, x2) - thickness;
         float minY = Math.min(y1, y2) - thickness;

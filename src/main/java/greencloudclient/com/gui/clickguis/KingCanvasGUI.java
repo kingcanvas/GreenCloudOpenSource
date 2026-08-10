@@ -3,17 +3,18 @@ package greencloudclient.com.gui.clickguis;
 import greencloudclient.com.GreenCloud;
 import greencloudclient.com.modules.Category;
 import greencloudclient.com.modules.Module;
-import greencloudclient.com.modules.render.HUD;
+import greencloudclient.com.modules.impl.render.HUD;
 import greencloudclient.com.settings.BooleanSetting;
 import greencloudclient.com.settings.ColorSetting;
 import greencloudclient.com.settings.ModeSetting;
 import greencloudclient.com.settings.NumberSetting;
 import greencloudclient.com.settings.Setting;
 import greencloudclient.com.settings.StringSetting;
+import greencloudclient.com.utils.AndroidUtil;
 import greencloudclient.com.utils.font.FontUtil;
 import greencloudclient.com.utils.render.GreenRender;
 import greencloudclient.com.utils.render.shaders.BlurUtil;
-import greencloudclient.com.modules.render.ClickGUIModule;
+import greencloudclient.com.modules.impl.render.ClickGUIModule;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
@@ -105,8 +106,12 @@ public class KingCanvasGUI extends GuiScreen {
         ScaledResolution sr = new ScaledResolution(mc);
         
         ClickGUIModule clickGui = GreenCloud.moduleManager.getModule(ClickGUIModule.class);
-        if (clickGui != null && clickGui.blur.enabled && !BlurUtil.isFastRenderActive()) {
-            BlurUtil.blurRegionRounded(startX, startY, width, height, (float) clickGui.blurStrength.value, 8);
+        if (!AndroidUtil.isAndroid() && clickGui != null && clickGui.blur.enabled && !BlurUtil.isFastRenderActive()) {
+            try {
+                BlurUtil.blurRegionRounded(startX, startY, width, height, (float) clickGui.blurStrength.value, 8);
+            } catch (Exception e) {
+                GreenRender.fillRect(startX, startY, width, height, bgColor);
+            }
         }
         
         GreenRender.fillRect(startX, startY, width, height, bgColor);

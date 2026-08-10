@@ -4,6 +4,7 @@ import greencloudclient.com.GreenCloud;
 import greencloudclient.com.managers.alt.Alt;
 import greencloudclient.com.managers.alt.AltManager;
 import greencloudclient.com.managers.alt.MicrosoftLogin;
+import greencloudclient.com.utils.AndroidUtil;
 import greencloudclient.com.utils.font.FontUtil;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.gui.*;
@@ -16,7 +17,7 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
-import greencloudclient.com.modules.render.HUD;
+import greencloudclient.com.modules.impl.render.HUD;
 import java.awt.*;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -71,7 +72,7 @@ public class GuiAltManager extends GuiScreen {
     public void initGui() {
         if (GreenCloud.altManager == null) GreenCloud.altManager = new AltManager();
         altManager = GreenCloud.altManager;
-        if (FontUtil.normal == null) FontUtil.bootstrap();
+        if (!AndroidUtil.isAndroid() && FontUtil.normal == null) FontUtil.bootstrap();
         Keyboard.enableRepeatEvents(true);
 
         usernameField = new GuiTextField(0, fontRendererObj, 0, 0, 200, 22);
@@ -124,16 +125,16 @@ public class GuiAltManager extends GuiScreen {
         String user = mc.getSession().getUsername();
 
         drawSkinHead(user, (int)(w / 2 - 24), 30, 48);
-        FontUtil.bold.drawCenteredString(user, w / 2, 85, -1);
-        FontUtil.small.drawCenteredString("Active Session", w / 2, 98, 0xFF777777);
+        FontUtil.getSafeBold().drawCenteredString(user, w / 2, 85, -1);
+        FontUtil.getSafeSmall().drawCenteredString("Active Session", w / 2, 98, 0xFF777777);
 
         drawRect(20, 120, (int)w - 20, 121, col(255, 255, 255, 8));
 
         int total = altManager.getAlts().size();
-        FontUtil.small.drawString("ACCOUNTS: " + total, 25, 140, 0xFF999999);
+        FontUtil.getSafeSmall().drawString("ACCOUNTS: " + total, 25, 140, 0xFF999999);
 
         int accent = HUD.getColor();
-        FontUtil.small.drawString("QUICK ADD", 25, 180, accent);
+        FontUtil.getSafeSmall().drawString("QUICK ADD", 25, 180, accent);
         float fieldY = 195;
         GreenRender.fillRR(20, fieldY, w - 40, 24, 4, col(0, 0, 0, 100));
         GreenRender.outlineRR(20, fieldY, w - 40, 24, 4, 1f, usernameField.isFocused() ? accent : C_OUTLINE);
@@ -142,7 +143,7 @@ public class GuiAltManager extends GuiScreen {
         usernameField.yPosition = (int)fieldY + 6;
         usernameField.width = (int)w - 52;
         if (usernameField.getText().isEmpty() && !usernameField.isFocused()) {
-            FontUtil.small.drawString("Username...", 28, fieldY + 7, 0xFF555555);
+            FontUtil.getSafeSmall().drawString("Username...", 28, fieldY + 7, 0xFF555555);
         } else {
             usernameField.drawTextBox();
         }
@@ -164,8 +165,8 @@ public class GuiAltManager extends GuiScreen {
         float y = 40;
         
         int accent = HUD.getColor();
-        FontUtil.large.drawString("GREENCLOUD", x, y, -1);
-        FontUtil.normal.drawString("ALT MANAGER", x + FontUtil.large.getStringWidth("GREENCLOUD") + 6, y + 2, accent);
+        FontUtil.getSafeLarge().drawString("GREENCLOUD", x, y, -1);
+        FontUtil.getSafeNormal().drawString("ALT MANAGER", x + FontUtil.getSafeLarge().getStringWidth("GREENCLOUD") + 6, y + 2, accent);
 
         float listY = y + 40;
         float listH = height - listY - 40;
@@ -204,16 +205,16 @@ public class GuiAltManager extends GuiScreen {
             GreenRender.fillRR(cx, rowY, cardW, cardH, 8, bg);
 
             drawRoundedHead(alt.getUsername(), (int)cx + 10, (int)rowY + 10, 40, 5);
-            FontUtil.normal.drawString(alt.getUsername(), cx + 58, rowY + 15, -1);
+            FontUtil.getSafeNormal().drawString(alt.getUsername(), cx + 58, rowY + 15, -1);
             
             String st = alt.getStatus() == Alt.Status.LoggedIn ? "Logged In" : alt.getType().name();
             int stCol = alt.getStatus() == Alt.Status.LoggedIn ? accent : 0xFF777777;
-            FontUtil.small.drawString(st, cx + 58, rowY + 30, stCol);
+            FontUtil.getSafeSmall().drawString(st, cx + 58, rowY + 30, stCol);
 
             if (hov) {
                 float dx = cx + cardW - 18, dy = rowY + 6;
                 boolean hovD = mx >= dx && mx <= dx + 12 && my >= dy && my <= dy + 12;
-                FontUtil.small.drawString("x", dx, dy, hovD ? 0xFFFF4444 : 0xFF777777);
+                FontUtil.getSafeSmall().drawString("x", dx, dy, hovD ? 0xFFFF4444 : 0xFF777777);
             }
 
             GlStateManager.popMatrix();
@@ -229,7 +230,7 @@ public class GuiAltManager extends GuiScreen {
         int bg = hov ? col(255, 255, 255, 15) : col(30, 30, 35, 200);
         GreenRender.fillRR(x, y, w, h, 6, bg);
         GreenRender.outlineRR(x, y, w, h, 6, 1.2f, hov ? accent : C_OUTLINE);
-        FontUtil.normal.drawCenteredString(text, x + w / 2f, y + (h - 8) / 2f, hov ? -1 : 0xFFBBBBBB);
+        FontUtil.getSafeNormal().drawCenteredString(text, x + w / 2f, y + (h - 8) / 2f, hov ? -1 : 0xFFBBBBBB);
     }
 
     @Override
@@ -453,8 +454,8 @@ public class GuiAltManager extends GuiScreen {
     }
 
     private String truncate(String s, int maxW) {
-        if (FontUtil.normal.getStringWidth(s) <= maxW) return s;
-        while (s.length() > 0 && FontUtil.normal.getStringWidth(s + "…") > maxW)
+        if (FontUtil.getSafeNormal().getStringWidth(s) <= maxW) return s;
+        while (s.length() > 0 && FontUtil.getSafeNormal().getStringWidth(s + "…") > maxW)
             s = s.substring(0, s.length() - 1);
         return s + "…";
     }

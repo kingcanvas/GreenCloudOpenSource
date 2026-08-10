@@ -6,7 +6,10 @@ public final class AndroidUtil {
 
     static {
         boolean detected = System.getenv("ANDROID_ROOT") != null
-                        || System.getenv("ANDROID_DATA") != null;
+                        || System.getenv("ANDROID_DATA") != null
+                        || System.getProperty("os.version", "").toLowerCase().contains("android")
+                        || System.getProperty("java.runtime.name", "").toLowerCase().contains("android")
+                        || System.getProperty("java.vm.name", "").toLowerCase().contains("dalvik");
 
         if (!detected) {
 

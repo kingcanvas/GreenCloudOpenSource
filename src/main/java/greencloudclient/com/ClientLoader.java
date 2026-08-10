@@ -10,6 +10,7 @@ import greencloudclient.com.managers.alt.AltManager;
 import greencloudclient.com.managers.notification.NotificationManager;
 import greencloudclient.com.managers.player.ViolationsManager;
 import greencloudclient.com.modules.ModuleManager;
+import greencloudclient.com.utils.AndroidUtil;
 import greencloudclient.com.utils.font.FontUtil;
 import greencloudclient.com.utils.network.NettyInjector;
 import net.minecraftforge.common.MinecraftForge;
@@ -96,11 +97,13 @@ public class ClientLoader {
             log.error("Failed to initialize ViolationsManager", e);
         }
 
-        try {
-            DiscordRP.getInstance().start();
-            log.info("Discord RPC started");
-        } catch (Throwable e) {
-            log.error("Failed to start Discord RPC", e);
+        if (!AndroidUtil.isAndroid()) {
+            try {
+                DiscordRP.getInstance().start();
+                log.info("Discord RPC started");
+            } catch (Throwable e) {
+                log.error("Failed to start Discord RPC", e);
+            }
         }
     }
 

@@ -27,7 +27,7 @@ public class ModuleManager {
             final ClassLoader loader = Thread.currentThread().getContextClassLoader();
             ClassPath classPath = ClassPath.from(loader);
             
-            for (String pkg : new String[]{"greencloudclient.com.modules"}) {
+            for (String pkg : new String[]{"greencloudclient.com.modules.impl"}) {
                 log.debug("Scanning package: " + pkg);
                 for (final ClassPath.ClassInfo info : classPath.getTopLevelClassesRecursive(pkg)) {
                     try {

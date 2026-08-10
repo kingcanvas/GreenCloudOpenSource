@@ -3,7 +3,7 @@ package greencloudclient.com.managers.notification;
 import greencloudclient.com.GreenCloud;
 import greencloudclient.com.managers.notification.model.Notification;
 import greencloudclient.com.managers.notification.render.NotificationRenderer;
-import greencloudclient.com.modules.render.HUD;
+import greencloudclient.com.modules.impl.render.HUD;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;

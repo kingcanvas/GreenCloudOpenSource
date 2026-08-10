@@ -3,6 +3,7 @@ package greencloudclient.com.command;
 import greencloudclient.com.GreenCloud;
 import greencloudclient.com.command.commands.bind.BindCommand;
 import greencloudclient.com.command.commands.config.ConfigCommand;
+import greencloudclient.com.command.commands.config.ConfigFavCommand;
 import greencloudclient.com.command.commands.script.ScriptCommand;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.ChatComponentText;
@@ -20,6 +21,7 @@ public class CommandManager {
 
 
         commands.add(new ConfigCommand());
+        commands.add(new ConfigFavCommand());
         commands.add(new ScriptCommand());
 
         GreenCloud.logger.info("Command Manager initialized with " + commands.size() + " commands");
