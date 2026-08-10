@@ -88,7 +88,7 @@ public class HUD extends Module {
         List<Module> active = new ArrayList<>();
         for (Module m : GreenCloud.moduleManager.getModules()) {
             if (m == this || m.isHidden()) continue;
-            float anim = AnimationUtil.moveUD(moduleAnimations.getOrDefault(m, 0f), m.isToggled() ? 1f : 0f, 0.14f, 0.05f);
+            float anim = AnimationUtil.moveUD(moduleAnimations.getOrDefault(m, 0f), m.isToggled() ? 1f : 0f, 0.18f, 0.07f);
             moduleAnimations.put(m, anim);
             if (anim > 0.01f) active.add(m);
         }
@@ -111,20 +111,27 @@ public class HUD extends Module {
         }
 
         PositionManager pm = PositionManager.getInstance();
-        float listX = sr.getScaledWidth() - maxW - 2f;
+        float screenWidth = sr.getScaledWidth();
+        float screenHeight = sr.getScaledHeight();
+        float listX = screenWidth - maxW - 2f;
         float listY = 2f;
 
         for (PositionManager.DraggableElement el : pm.elements) {
             if (el.name.equals(ARRAYLIST_NAME)) {
-                listX = el.x;
-                listY = el.y;
-                el.width  = (int) maxW;
-                el.height = (int) totalH;
+                boolean anchoredRight = el.x + el.width / 2f >= screenWidth / 2f;
+                float storedRight = el.x + el.width;
+                listX = anchoredRight ? storedRight - maxW : el.x;
+                listX = Math.max(2f, Math.min(listX, screenWidth - maxW - 2f));
+                listY = Math.max(0f, Math.min(el.y, screenHeight - totalH));
+                el.x = Math.round(listX);
+                el.y = Math.round(listY);
+                el.width = (int) Math.ceil(maxW);
+                el.height = (int) Math.ceil(totalH);
                 break;
             }
         }
 
-        boolean isLeft = listX < sr.getScaledWidth() / 2f;
+        boolean isLeft = listX + maxW / 2f < screenWidth / 2f;
         float rightEdge = listX + maxW;
 
         float currentY = listY;

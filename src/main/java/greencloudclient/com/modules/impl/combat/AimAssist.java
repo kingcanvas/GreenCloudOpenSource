@@ -11,6 +11,8 @@ import net.minecraft.util.MathHelper;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
+import java.util.Random;
+
 public class AimAssist extends Module {
     
     public static AimAssist instance;
@@ -21,19 +23,31 @@ public class AimAssist extends Module {
     private final BooleanSetting requireWeapon = new BooleanSetting("Require Weapon", this, true);
     private final BooleanSetting teammateCheck = new BooleanSetting("Teammate Check", this, true);
     private final BooleanSetting breakBlocks = new BooleanSetting("Break Blocks", this, true);
+    private final BooleanSetting randomization = new BooleanSetting("Randomization", this, true);
+    private final NumberSetting randomizationAmount = new NumberSetting("Randomization Amount", this, 0.3, 0.0, 1.0, 0.05, () -> randomization.enabled);
     
     private boolean hasWarned = false;
+    private final Random random = new Random();
+    private EntityPlayer randomizedTarget;
+    private double currentOffsetX;
+    private double currentOffsetZ;
+    private double currentHeightFactor = 0.7;
+    private double targetOffsetX;
+    private double targetOffsetZ;
+    private double targetHeightFactor = 0.7;
+    private long nextRandomizationTime;
     
     public AimAssist() {
         super("AimAssist", Category.COMBAT);
         instance = this;
-        addSettings(speed, fov, range, requireWeapon, teammateCheck, breakBlocks);
+        addSettings(speed, fov, range, requireWeapon, teammateCheck, breakBlocks, randomization, randomizationAmount);
     }
     
     @Override
     public void onEnable() {
         super.onEnable();
         hasWarned = false;
+        resetRandomization();
         checkSpeedWarning();
     }
     
@@ -73,14 +87,17 @@ public class AimAssist extends Module {
         }
         
         EntityPlayer target = getBestTarget();
-        if (target == null) return;
-        
-        double targetY = target.posY + target.height * 0.7f;
+        if (target == null) {
+            resetRandomization();
+            return;
+        }
+
+        double[] aimPoint = getAimPoint(target);
         
         float[] rots = getRotations(
-                target.posX,
-                targetY,
-                target.posZ
+                aimPoint[0],
+                aimPoint[1],
+                aimPoint[2]
         );
         
         float yawDiff = wrapDeg(rots[0] - mc.thePlayer.rotationYaw);
@@ -125,6 +142,59 @@ public class AimAssist extends Module {
                 pitDiff,
                 gcd
         );
+    }
+
+    private double[] getAimPoint(EntityPlayer target) {
+        if (!randomization.enabled || randomizationAmount.getValue() <= 0.0) {
+            randomizedTarget = null;
+            return new double[]{target.posX, target.posY + target.height * 0.7, target.posZ};
+        }
+
+        long now = System.currentTimeMillis();
+        if (target != randomizedTarget) {
+            randomizedTarget = target;
+            chooseRandomizedPoint(target, now);
+            currentOffsetX = targetOffsetX;
+            currentOffsetZ = targetOffsetZ;
+            currentHeightFactor = targetHeightFactor;
+        } else if (now >= nextRandomizationTime) {
+            chooseRandomizedPoint(target, now);
+        }
+
+        double smoothing = 0.22;
+        currentOffsetX += (targetOffsetX - currentOffsetX) * smoothing;
+        currentOffsetZ += (targetOffsetZ - currentOffsetZ) * smoothing;
+        currentHeightFactor += (targetHeightFactor - currentHeightFactor) * smoothing;
+
+        return new double[]{
+                target.posX + currentOffsetX,
+                target.posY + target.height * currentHeightFactor,
+                target.posZ + currentOffsetZ
+        };
+    }
+
+    private void chooseRandomizedPoint(EntityPlayer target, long now) {
+        double amount = randomizationAmount.getValue();
+        double dx = target.posX - mc.thePlayer.posX;
+        double dz = target.posZ - mc.thePlayer.posZ;
+        double horizontalDistance = Math.max(0.0001, Math.sqrt(dx * dx + dz * dz));
+        double lateral = (random.nextDouble() * 2.0 - 1.0) * target.width * 0.18 * amount;
+        double depth = (random.nextDouble() * 2.0 - 1.0) * target.width * 0.05 * amount;
+        targetOffsetX = -dz / horizontalDistance * lateral + dx / horizontalDistance * depth;
+        targetOffsetZ = dx / horizontalDistance * lateral + dz / horizontalDistance * depth;
+        targetHeightFactor = 0.68 + (random.nextDouble() * 2.0 - 1.0) * 0.04 * amount;
+        nextRandomizationTime = now + 120L + random.nextInt(161);
+    }
+
+    private void resetRandomization() {
+        randomizedTarget = null;
+        currentOffsetX = 0.0;
+        currentOffsetZ = 0.0;
+        currentHeightFactor = 0.7;
+        targetOffsetX = 0.0;
+        targetOffsetZ = 0.0;
+        targetHeightFactor = 0.7;
+        nextRandomizationTime = 0L;
     }
     
     private float getGCD() {
@@ -221,44 +291,28 @@ public class AimAssist extends Module {
     
     private boolean isTeam(EntityPlayer entity, EntityPlayer target) {
         if (entity == null || target == null) return false;
+
+        if (target.isOnSameTeam(entity) || entity.isOnSameTeam(target)) return true;
         
         ScorePlayerTeam entityTeam =
                 mc.theWorld.getScoreboard().getPlayersTeam(entity.getName());
         
         ScorePlayerTeam targetTeam =
                 mc.theWorld.getScoreboard().getPlayersTeam(target.getName());
-        
+
         if (entityTeam != null && targetTeam != null) {
-            if (entityTeam.isSameTeam(targetTeam)) {
-                return true;
-            }
-            
-            if (entityTeam.getChatFormat() != null
-                    && targetTeam.getChatFormat() != null
-                    && entityTeam.getChatFormat() == targetTeam.getChatFormat()) {
-                return true;
-            }
-            
-            String entityPrefix = entityTeam.getColorPrefix();
-            String targetPrefix = targetTeam.getColorPrefix();
-            
-            if (entityPrefix != null && targetPrefix != null) {
-                Character entityColor = getColorCode(entityPrefix);
-                Character targetColor = getColorCode(targetPrefix);
-                
-                if (entityColor != null
-                        && targetColor != null
-                        && entityColor.equals(targetColor)) {
-                    return true;
-                }
-            }
+            Character entityTeamColor = getLastColorCode(entityTeam.getColorPrefix());
+            Character targetTeamColor = getLastColorCode(targetTeam.getColorPrefix());
+            return entityTeamColor != null && entityTeamColor.equals(targetTeamColor);
         }
+
+        if (entityTeam != null || targetTeam != null) return false;
         
         String entityName = getFormattedPlayerName(entity);
         String targetName = getFormattedPlayerName(target);
         
-        Character entityColor = getColorCode(entityName);
-        Character targetColor = getColorCode(targetName);
+        Character entityColor = getLastColorCode(entityName);
+        Character targetColor = getLastColorCode(targetName);
         
         if (entityColor != null
                 && targetColor != null
@@ -277,22 +331,23 @@ public class AimAssist extends Module {
         return player.getName();
     }
     
-    private Character getColorCode(String text) {
+    private Character getLastColorCode(String text) {
         if (text == null || text.length() < 2) {
             return null;
         }
-        
+
+        Character color = null;
         for (int i = 0; i < text.length() - 1; i++) {
             if (text.charAt(i) == '§') {
                 char code = Character.toLowerCase(text.charAt(i + 1));
                 
                 if ((code >= '0' && code <= '9')
                         || (code >= 'a' && code <= 'f')) {
-                    return code;
+                    color = code;
                 }
             }
         }
-        
-        return null;
+
+        return color;
     }
 }
