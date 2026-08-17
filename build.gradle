@@ -18,7 +18,7 @@ apply plugin: 'kotlin'
 apply plugin: 'net.minecraftforge.gradle.forge'
 apply plugin: 'org.spongepowered.mixin'
 
-version = "V2.7.1"
+version = "V2.7.2"
 group = "greencloud"
 archivesBaseName = "GreenCloud"
 sourceCompatibility = targetCompatibility = '1.8'

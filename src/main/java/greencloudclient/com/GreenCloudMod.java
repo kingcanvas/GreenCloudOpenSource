@@ -18,7 +18,7 @@ public class GreenCloudMod {
 
     public static GreenCloudMod instance;
     public static final String CLIENT_NAME = "GreenCloud";
-    public static final String CLIENT_VERSION = "2.7.1";
+    public static final String CLIENT_VERSION = "2.7.2";
 
     public GreenCloudMod() {
         instance = this;
