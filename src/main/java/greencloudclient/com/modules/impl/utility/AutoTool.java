@@ -7,7 +7,6 @@ import greencloudclient.com.settings.ModeSetting;
 import greencloudclient.com.settings.NumberSetting;
 import greencloudclient.com.settings.BooleanSetting;
 import net.minecraft.block.Block;
-import net.minecraft.init.Blocks;
 import net.minecraft.client.multiplayer.PlayerControllerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.BlockPos;
@@ -22,11 +21,6 @@ public class AutoTool extends Module {
     public ModeSetting mode = new ModeSetting("Mode", this, "Lite", "Lite");
     public NumberSetting delay = new NumberSetting("Swap Delay", this, 100, 0, 1000, 50);
     public BooleanSetting requireSneak = new BooleanSetting("Require Sneak", this, false);
-    public ModeSetting filterMode = new ModeSetting("Filter Mode", this, "Off", "Off", "Blacklist");
-    public BooleanSetting wool = new BooleanSetting("Wool", this, false, () -> filterMode.currentMode.equals("Blacklist"));
-    public BooleanSetting wood = new BooleanSetting("Wood", this, false, () -> filterMode.currentMode.equals("Blacklist"));
-    public BooleanSetting stone = new BooleanSetting("Stone", this, false, () -> filterMode.currentMode.equals("Blacklist"));
-    public BooleanSetting enderchest = new BooleanSetting("Enderchest", this, true, () -> filterMode.currentMode.equals("Blacklist"));
     private int originalSlot = -1;
     private int bestSlot = -1;
     private boolean isMining = false;
@@ -36,7 +30,7 @@ public class AutoTool extends Module {
 
     public AutoTool() {
         super("AutoTool", Category.UTILITY);
-        this.addSettings(mode, delay, requireSneak, filterMode, wool, wood, stone, enderchest);
+        this.addSettings(mode, delay, requireSneak);
         setupReflection();
     }
 
@@ -65,7 +59,6 @@ public class AutoTool extends Module {
             lastMineTime = System.currentTimeMillis();
             BlockPos pos = mc.objectMouseOver.getBlockPos();
             Block block = mc.theWorld.getBlockState(pos).getBlock();
-            if (!isBlockAllowed(block)) return;
             bestSlot = getBestTool(block);
             if (bestSlot != -1 && bestSlot != mc.thePlayer.inventory.currentItem) {
                 if (!isMining) {
@@ -83,15 +76,6 @@ public class AutoTool extends Module {
                 }
             }
         }
-    }
-
-    private boolean isBlockAllowed(Block block) {
-        if (filterMode.currentMode.equals("Off")) return true;
-        if (wool.enabled && block == Blocks.wool) return false;
-        if (wood.enabled && (block == Blocks.planks || block == Blocks.log || block == Blocks.log2 || block == Blocks.wooden_slab || block == Blocks.double_wooden_slab)) return false;
-        if (stone.enabled && (block == Blocks.stone || block == Blocks.cobblestone || block == Blocks.mossy_cobblestone || block == Blocks.stonebrick)) return false;
-        if (enderchest.enabled && block == Blocks.ender_chest) return false;
-        return true;
     }
 
     private void resetTool() {

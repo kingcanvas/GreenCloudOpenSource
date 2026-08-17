@@ -26,8 +26,8 @@ public final class ClientLoadingScreen {
     };
 
     private static final int IMAGE_SIZE = 1254;
-    private static final int IMAGE_CROP = 220;
-    private static final int IMAGE_CROP_SIZE = 814;
+    private static final int IMAGE_CROP = 0;
+    private static final int IMAGE_CROP_SIZE = IMAGE_SIZE;
     private static ResourceLocation logoTexture;
     private static boolean logoLoadAttempted;
     private static float displayedProgress;
@@ -43,7 +43,7 @@ public final class ClientLoadingScreen {
         int height = resolution.getScaledHeight();
 
         if (OpenGlHelper.isFramebufferEnabled()) {
-            framebuffer.setFramebufferColor(0.012f, 0.01f, 0.02f, 1.0f);
+            framebuffer.setFramebufferColor(0.0f, 0.0f, 0.0f, 1.0f);
             framebuffer.framebufferClear();
         } else {
             GlStateManager.clear(256);
@@ -97,29 +97,21 @@ public final class ClientLoadingScreen {
     private static void draw(int width, int height, Minecraft mc, float progress, String status, float alpha, boolean transition) {
         alpha = Math.max(0.0f, Math.min(1.0f, alpha));
         if (transition && alpha < 4.0f / 255.0f) return;
-        Gui.drawRect(0, 0, width, height, withAlpha(0x05040A, alpha));
+        Gui.drawRect(0, 0, width, height, withAlpha(0x000000, alpha));
 
-        int leftWidth = Math.max(1, (int) (width * 0.58f));
         int logoSize = Math.max(72, Math.min((int) (height * 0.52f), (int) (width * 0.36f)));
-        int logoX = (leftWidth - logoSize) / 2;
-        int logoY = Math.max(12, (height - logoSize) / 2 - Math.max(8, height / 32));
+        int barHeight = Math.max(4, height / 100);
+        int gap = Math.max(8, height / 48);
+        int totalHeight = logoSize + gap + barHeight;
+        int logoX = (width - logoSize) / 2;
+        int logoY = Math.max(12, (height - totalHeight) / 2);
 
         drawLogo(mc, logoX, logoY, logoSize, alpha);
 
-        int barWidth = Math.max(100, Math.min(280, (int) (leftWidth * 0.68f)));
-        int barX = (leftWidth - barWidth) / 2;
-        int barY = Math.min(height - 34, logoY + logoSize + Math.max(8, height / 48));
-        drawProgressBar(barX, barY, barWidth, Math.max(4, height / 100), progress, alpha);
-
-        FontRenderer font = mc.fontRendererObj;
-        if (font != null) {
-            drawCredits(font, width, height, leftWidth, alpha);
-        }
-
-        int separatorX = leftWidth;
-        int separatorTop = Math.max(18, height / 8);
-        int separatorBottom = height - separatorTop;
-        Gui.drawRect(separatorX, separatorTop, separatorX + 1, separatorBottom, withAlpha(0x4B315D, alpha * 0.7f));
+        int barWidth = Math.max(100, Math.min(280, (int) (width * 0.4f)));
+        int barX = (width - barWidth) / 2;
+        int barY = logoY + logoSize + gap;
+        drawProgressBar(barX, barY, barWidth, barHeight, progress, alpha);
         GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
@@ -137,7 +129,7 @@ public final class ClientLoadingScreen {
     private static void ensureLogoTexture(Minecraft mc) {
         if (logoLoadAttempted) return;
         logoLoadAttempted = true;
-        try (InputStream stream = ClientLoadingScreen.class.getResourceAsStream("/assets/greencloudclient/textures/gui/loading_logo.png")) {
+        try (InputStream stream = ClientLoadingScreen.class.getResourceAsStream("/assets/greencloudclient/logo/greencloud.png")) {
             if (stream != null) {
                 DynamicTexture texture = new DynamicTexture(TextureUtil.readBufferedImage(stream));
                 logoTexture = mc.getTextureManager().getDynamicTextureLocation("greencloud_loading_logo", texture);
@@ -146,15 +138,15 @@ public final class ClientLoadingScreen {
     }
 
     private static void drawProgressBar(int x, int y, int width, int height, float progress, float alpha) {
-        Gui.drawRect(x - 2, y - 2, x + width + 2, y + height + 2, withAlpha(0x261B31, alpha));
-        Gui.drawRect(x, y, x + width, y + height, withAlpha(0x100D16, alpha));
+        Gui.drawRect(x - 2, y - 2, x + width + 2, y + height + 2, withAlpha(0x12351D, alpha));
+        Gui.drawRect(x, y, x + width, y + height, withAlpha(0x061109, alpha));
         int fill = Math.max(0, Math.min(width, Math.round(width * progress)));
         int segments = Math.min(fill, 72);
         for (int i = 0; i < segments; i++) {
             int start = x + fill * i / segments;
             int end = x + fill * (i + 1) / segments;
             float mix = segments <= 1 ? 1.0f : i / (float) (segments - 1);
-            Gui.drawRect(start, y, Math.max(start + 1, end), y + height, withAlpha(interpolate(0x8658FF, 0xFF62D4, mix), alpha));
+            Gui.drawRect(start, y, Math.max(start + 1, end), y + height, withAlpha(interpolate(0x16D95B, 0xB6FF45, mix), alpha));
         }
     }
 

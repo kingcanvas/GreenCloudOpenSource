@@ -4,6 +4,7 @@ import greencloudclient.com.managers.notification.NotificationManager;
 import greencloudclient.com.modules.Category;
 import greencloudclient.com.modules.Module;
 import greencloudclient.com.settings.BooleanSetting;
+import greencloudclient.com.settings.MultiModeSetting;
 import greencloudclient.com.settings.NumberSetting;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.scoreboard.ScorePlayerTeam;
@@ -12,6 +13,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 import java.util.Random;
+import java.util.List;
 
 public class AimAssist extends Module {
     
@@ -20,34 +22,39 @@ public class AimAssist extends Module {
     private final NumberSetting speed = new NumberSetting("Speed", this, 3.5, 1, 255, 0.1);
     private final NumberSetting fov = new NumberSetting("FOV", this, 30, 90, 1.0, 360, 0.5, true);
     private final NumberSetting range = new NumberSetting("Range", this, 4.5, 1, 8, 0.1);
+    private final MultiModeSetting aimingParts = new MultiModeSetting("Aiming Parts", this,
+            new String[]{"Head", "Chest", "Stomach", "Legs"}, "Head", "Chest");
     private final BooleanSetting requireWeapon = new BooleanSetting("Require Weapon", this, true);
     private final BooleanSetting teammateCheck = new BooleanSetting("Teammate Check", this, true);
     private final BooleanSetting breakBlocks = new BooleanSetting("Break Blocks", this, true);
-    private final BooleanSetting randomization = new BooleanSetting("Randomization", this, true);
-    private final NumberSetting randomizationAmount = new NumberSetting("Randomization Amount", this, 0.3, 0.0, 1.0, 0.05, () -> randomization.enabled);
+    private final BooleanSetting noise = new BooleanSetting("Noise", this, true);
+    private final NumberSetting noiseAmount = new NumberSetting("Noise Amount", this, 0.3, 0.0, 1.0, 0.05, () -> noise.enabled);
     
     private boolean hasWarned = false;
     private final Random random = new Random();
-    private EntityPlayer randomizedTarget;
+    private EntityPlayer noiseTarget;
     private double currentOffsetX;
     private double currentOffsetZ;
     private double currentHeightFactor = 0.7;
     private double targetOffsetX;
     private double targetOffsetZ;
     private double targetHeightFactor = 0.7;
-    private long nextRandomizationTime;
+    private String currentAimingPart;
+    private long nextAimingPartTime;
+    private long noiseStartTime;
+    private long noiseSeed;
     
     public AimAssist() {
         super("AimAssist", Category.COMBAT);
         instance = this;
-        addSettings(speed, fov, range, requireWeapon, teammateCheck, breakBlocks, randomization, randomizationAmount);
+        addSettings(speed, fov, range, aimingParts, requireWeapon, teammateCheck, breakBlocks, noise, noiseAmount);
     }
     
     @Override
     public void onEnable() {
         super.onEnable();
         hasWarned = false;
-        resetRandomization();
+        resetNoise();
         checkSpeedWarning();
     }
     
@@ -88,7 +95,7 @@ public class AimAssist extends Module {
         
         EntityPlayer target = getBestTarget();
         if (target == null) {
-            resetRandomization();
+            resetNoise();
             return;
         }
 
@@ -145,20 +152,38 @@ public class AimAssist extends Module {
     }
 
     private double[] getAimPoint(EntityPlayer target) {
-        if (!randomization.enabled || randomizationAmount.getValue() <= 0.0) {
-            randomizedTarget = null;
-            return new double[]{target.posX, target.posY + target.height * 0.7, target.posZ};
+        long now = System.currentTimeMillis();
+        boolean targetChanged = target != noiseTarget;
+        updateAimingPart(now, targetChanged);
+        double partHeight = getAimingPartHeight();
+
+        if (!noise.enabled || noiseAmount.getValue() <= 0.0) {
+            noiseTarget = target;
+            targetOffsetX = 0.0;
+            targetOffsetZ = 0.0;
+            targetHeightFactor = partHeight;
+            if (targetChanged) {
+                currentOffsetX = 0.0;
+                currentOffsetZ = 0.0;
+                currentHeightFactor = partHeight;
+            } else {
+                currentOffsetX += (targetOffsetX - currentOffsetX) * 0.22;
+                currentOffsetZ += (targetOffsetZ - currentOffsetZ) * 0.22;
+                currentHeightFactor += (targetHeightFactor - currentHeightFactor) * 0.22;
+            }
+            return new double[]{
+                    target.posX + currentOffsetX,
+                    target.posY + target.height * currentHeightFactor,
+                    target.posZ + currentOffsetZ
+            };
         }
 
-        long now = System.currentTimeMillis();
-        if (target != randomizedTarget) {
-            randomizedTarget = target;
-            chooseRandomizedPoint(target, now);
+        noiseTarget = target;
+        updateNoisePoint(target);
+        if (targetChanged) {
             currentOffsetX = targetOffsetX;
             currentOffsetZ = targetOffsetZ;
             currentHeightFactor = targetHeightFactor;
-        } else if (now >= nextRandomizationTime) {
-            chooseRandomizedPoint(target, now);
         }
 
         double smoothing = 0.22;
@@ -173,28 +198,88 @@ public class AimAssist extends Module {
         };
     }
 
-    private void chooseRandomizedPoint(EntityPlayer target, long now) {
-        double amount = randomizationAmount.getValue();
+    private void updateNoisePoint(EntityPlayer target) {
+        double amount = noiseAmount.getValue();
+        double seconds = Math.max(0.0, (System.nanoTime() - noiseStartTime) / 1_000_000_000.0);
         double dx = target.posX - mc.thePlayer.posX;
         double dz = target.posZ - mc.thePlayer.posZ;
         double horizontalDistance = Math.max(0.0001, Math.sqrt(dx * dx + dz * dz));
-        double lateral = (random.nextDouble() * 2.0 - 1.0) * target.width * 0.18 * amount;
-        double depth = (random.nextDouble() * 2.0 - 1.0) * target.width * 0.05 * amount;
+        double lateral = fractalNoise(seconds * 1.15, 11L) * target.width * 0.14 * amount;
+        double depth = fractalNoise(seconds * 0.82, 37L) * target.width * 0.045 * amount;
         targetOffsetX = -dz / horizontalDistance * lateral + dx / horizontalDistance * depth;
         targetOffsetZ = dx / horizontalDistance * lateral + dz / horizontalDistance * depth;
-        targetHeightFactor = 0.68 + (random.nextDouble() * 2.0 - 1.0) * 0.04 * amount;
-        nextRandomizationTime = now + 120L + random.nextInt(161);
+        targetHeightFactor = getAimingPartHeight() + fractalNoise(seconds * 0.7, 73L) * 0.03 * amount;
     }
 
-    private void resetRandomization() {
-        randomizedTarget = null;
+    private double fractalNoise(double position, long channel) {
+        return sampleNoise(position, channel) * 0.62
+                + sampleNoise(position * 2.03, channel + 101L) * 0.28
+                + sampleNoise(position * 4.11, channel + 211L) * 0.1;
+    }
+
+    private double sampleNoise(double position, long channel) {
+        long left = (long) Math.floor(position);
+        double blend = position - left;
+        blend = blend * blend * (3.0 - 2.0 * blend);
+        double first = noiseValue(left, channel);
+        double second = noiseValue(left + 1L, channel);
+        return first + (second - first) * blend;
+    }
+
+    private double noiseValue(long index, long channel) {
+        long value = index + noiseSeed + channel * 0x9E3779B97F4A7C15L;
+        value = (value ^ (value >>> 30)) * 0xBF58476D1CE4E5B9L;
+        value = (value ^ (value >>> 27)) * 0x94D049BB133111EBL;
+        value ^= value >>> 31;
+        return ((value >>> 11) * 1.1102230246251565E-16) * 2.0 - 1.0;
+    }
+
+    private boolean updateAimingPart(long now, boolean targetChanged) {
+        List<String> selected = aimingParts.getSelectedModes();
+        if (selected.isEmpty()) {
+            boolean changed = !"Chest".equals(currentAimingPart);
+            currentAimingPart = "Chest";
+            nextAimingPartTime = now + 900L;
+            return changed;
+        }
+
+        int currentIndex = selected.indexOf(currentAimingPart);
+        boolean needsSelection = targetChanged || currentIndex < 0 || now >= nextAimingPartTime;
+        if (!needsSelection) return false;
+
+        String previous = currentAimingPart;
+        if (selected.size() == 1) {
+            currentAimingPart = selected.get(0);
+        } else if (currentIndex >= 0 && !targetChanged) {
+            int nextIndex = random.nextInt(selected.size() - 1);
+            if (nextIndex >= currentIndex) nextIndex++;
+            currentAimingPart = selected.get(nextIndex);
+        } else {
+            currentAimingPart = selected.get(random.nextInt(selected.size()));
+        }
+        nextAimingPartTime = now + 700L + random.nextInt(701);
+        return previous == null || !previous.equals(currentAimingPart);
+    }
+
+    private double getAimingPartHeight() {
+        if ("Head".equals(currentAimingPart)) return 0.88;
+        if ("Stomach".equals(currentAimingPart)) return 0.5;
+        if ("Legs".equals(currentAimingPart)) return 0.28;
+        return 0.68;
+    }
+
+    private void resetNoise() {
+        noiseTarget = null;
         currentOffsetX = 0.0;
         currentOffsetZ = 0.0;
         currentHeightFactor = 0.7;
         targetOffsetX = 0.0;
         targetOffsetZ = 0.0;
         targetHeightFactor = 0.7;
-        nextRandomizationTime = 0L;
+        currentAimingPart = null;
+        nextAimingPartTime = 0L;
+        noiseStartTime = System.nanoTime();
+        noiseSeed = random.nextLong();
     }
     
     private float getGCD() {

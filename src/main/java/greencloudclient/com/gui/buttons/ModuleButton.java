@@ -44,6 +44,7 @@ public class ModuleButton {
             if      (s instanceof BooleanSetting) components.add(new BooleanComponent((BooleanSetting) s, this));
             else if (s instanceof NumberSetting)  components.add(new NumberComponent((NumberSetting)  s, this));
             else if (s instanceof ModeSetting)    components.add(new ModeComponent((ModeSetting)    s, this));
+            else if (s instanceof MultiModeSetting) components.add(new MultiModeComponent((MultiModeSetting) s, this));
             else if (s instanceof ColorSetting)   components.add(new ColorComponent((ColorSetting)   s, this));
             else if (s instanceof StringSetting)  components.add(new StringComponent((StringSetting)  s, this));
         }

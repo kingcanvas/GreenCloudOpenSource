@@ -34,8 +34,8 @@ public final class ForgeSplashLoadingScreen {
     };
 
     private static final int IMAGE_SIZE = 1254;
-    private static final float IMAGE_CROP = 220.0f / IMAGE_SIZE;
-    private static final float IMAGE_CROP_END = 1034.0f / IMAGE_SIZE;
+    private static final float IMAGE_CROP = 0.0f;
+    private static final float IMAGE_CROP_END = 1.0f;
     private static final Field DONE_FIELD = field("done");
     private static final Field PAUSE_FIELD = field("pause");
     private static final Field FONT_RENDERER_FIELD = field("fontRenderer");
@@ -78,12 +78,8 @@ public final class ForgeSplashLoadingScreen {
     public static synchronized boolean start() {
         if (active) return true;
         try {
-            logoTexture = uploadTexture(loadImage("/assets/greencloudclient/textures/gui/loading_logo.png"));
+            logoTexture = uploadTexture(loadImage("/assets/greencloudclient/logo/greencloud.png"));
             if (logoTexture == 0) throw new IllegalStateException("Loading logo texture could not be created");
-            BufferedImage credits = createCreditsImage();
-            creditsTexture = uploadTexture(credits);
-            creditsWidth = credits.getWidth();
-            creditsHeight = credits.getHeight();
             displayedProgress = 0.0f;
             progressStage = "";
             renderedFrames = 0;
@@ -114,7 +110,7 @@ public final class ForgeSplashLoadingScreen {
     public static void renderFrame() {
         int width = Math.max(1, Display.getWidth());
         int height = Math.max(1, Display.getHeight());
-        GL11.glClearColor(0.012f, 0.01f, 0.02f, 1.0f);
+        GL11.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
         GL11.glViewport(0, 0, width, height);
         GL11.glMatrixMode(GL11.GL_PROJECTION);
@@ -126,24 +122,20 @@ public final class ForgeSplashLoadingScreen {
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
-        fillRect(0.0f, 0.0f, width, height, 0x05040A, 1.0f);
+        fillRect(0.0f, 0.0f, width, height, 0x000000, 1.0f);
 
-        int leftWidth = Math.max(1, Math.round(width * 0.58f));
         int logoSize = Math.max(160, Math.min(Math.round(height * 0.56f), Math.round(width * 0.38f)));
-        int logoX = (leftWidth - logoSize) / 2;
-        int logoY = Math.max(24, (height - logoSize) / 2 - Math.max(14, height / 28));
+        int barHeight = Math.max(7, height / 90);
+        int gap = Math.max(14, height / 45);
+        int totalHeight = logoSize + gap + barHeight;
+        int logoX = (width - logoSize) / 2;
+        int logoY = Math.max(24, (height - totalHeight) / 2);
         drawLogo(logoX, logoY, logoSize);
 
-        int barWidth = Math.max(220, Math.min(520, Math.round(leftWidth * 0.64f)));
-        int barHeight = Math.max(7, height / 90);
-        int barX = (leftWidth - barWidth) / 2;
-        int barY = Math.min(height - 64, logoY + logoSize + Math.max(14, height / 45));
+        int barWidth = Math.max(220, Math.min(520, Math.round(width * 0.4f)));
+        int barX = (width - barWidth) / 2;
+        int barY = logoY + logoSize + gap;
         drawProgressBar(barX, barY, barWidth, barHeight, displayedProgress);
-
-        drawCredits(width, height, leftWidth);
-
-        int separatorTop = Math.max(32, height / 8);
-        fillRect(leftWidth, separatorTop, leftWidth + Math.max(1, width / 1200), height - separatorTop, 0x4B315D, 0.7f);
         renderedFrames++;
     }
 
@@ -267,15 +259,15 @@ public final class ForgeSplashLoadingScreen {
     }
 
     private static void drawProgressBar(int x, int y, int width, int height, float progress) {
-        fillRect(x - 3, y - 3, x + width + 3, y + height + 3, 0x261B31, 1.0f);
-        fillRect(x, y, x + width, y + height, 0x100D16, 1.0f);
+        fillRect(x - 3, y - 3, x + width + 3, y + height + 3, 0x12351D, 1.0f);
+        fillRect(x, y, x + width, y + height, 0x061109, 1.0f);
         int fill = Math.max(0, Math.min(width, Math.round(width * progress)));
         int segments = Math.min(fill, 96);
         for (int i = 0; i < segments; i++) {
             int start = x + fill * i / segments;
             int end = x + fill * (i + 1) / segments;
             float mix = segments <= 1 ? 1.0f : i / (float) (segments - 1);
-            fillRect(start, y, Math.max(start + 1, end), y + height, interpolate(0x8658FF, 0xFF62D4, mix), 1.0f);
+            fillRect(start, y, Math.max(start + 1, end), y + height, interpolate(0x16D95B, 0xB6FF45, mix), 1.0f);
         }
     }
 

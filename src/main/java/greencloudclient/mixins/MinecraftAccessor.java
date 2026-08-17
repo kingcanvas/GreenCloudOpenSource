@@ -9,4 +9,7 @@ public interface MinecraftAccessor {
 
     @Accessor("running")
     boolean greencloud$isRunning();
+
+    @Accessor("leftClickCounter")
+    void greencloud$setLeftClickCounter(int value);
 }

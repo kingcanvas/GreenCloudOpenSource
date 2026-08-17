@@ -7,6 +7,7 @@ import greencloudclient.com.modules.impl.render.HUD;
 import greencloudclient.com.settings.BooleanSetting;
 import greencloudclient.com.settings.ColorSetting;
 import greencloudclient.com.settings.ModeSetting;
+import greencloudclient.com.settings.MultiModeSetting;
 import greencloudclient.com.settings.NumberSetting;
 import greencloudclient.com.settings.Setting;
 import greencloudclient.com.settings.StringSetting;
@@ -271,7 +272,9 @@ public class KingCanvasGUI extends GuiScreen {
             int settingPanelHeight = 0;
             for (Setting s : module.getSettings()) {
                 if (s.isVisible()) {
-                    settingPanelHeight += (s instanceof NumberSetting) ? 28 : 20;
+                    settingPanelHeight += s instanceof NumberSetting ? 28
+                            : s instanceof MultiModeSetting ? getMultiModeRowHeight((MultiModeSetting) s, mainPanelWidth - 30)
+                            : 20;
                     if (s == expandedColorSetting) settingPanelHeight += 65;
                 }
             }
@@ -280,7 +283,9 @@ public class KingCanvasGUI extends GuiScreen {
             
             for (Setting setting : module.getSettings()) {
                 if (setting.isVisible()) {
-                    int settingRowHeight = (setting instanceof NumberSetting) ? 28 : 20;
+                    int settingRowHeight = setting instanceof NumberSetting ? 28
+                            : setting instanceof MultiModeSetting ? getMultiModeRowHeight((MultiModeSetting) setting, mainPanelWidth - 30)
+                            : 20;
                     if (setting == expandedColorSetting) settingRowHeight += 65;
                     
                     y += 20;
@@ -292,6 +297,9 @@ public class KingCanvasGUI extends GuiScreen {
                     } else if (setting instanceof ModeSetting) {
                         ModeSetting mode = (ModeSetting) setting;
                         FontUtil.getSafeNormal().drawStringWithShadow(setting.name + ": " + mode.currentMode, x + 15, settingRowY + 6, textColor.getRGB());
+                    } else if (setting instanceof MultiModeSetting) {
+                        drawMultiModeSetting((MultiModeSetting) setting, x + 15, settingRowY, mainPanelWidth - 30, accentColor);
+                        y += settingRowHeight - 20;
                     } else if (setting instanceof NumberSetting) {
                         NumberSetting number = (NumberSetting) setting;
                         settingRowY = (int) y;
@@ -402,6 +410,60 @@ public class KingCanvasGUI extends GuiScreen {
         int hueIndicatorX = x + (int) (setting.hue * width);
         GreenRender.fillRR(hueIndicatorX - 3, hueY - 2, 6, hueHeight + 4, 3f, Color.WHITE);
     }
+
+    private int getMultiModeRowHeight(MultiModeSetting setting, int width) {
+        int rows = 1;
+        float currentX = 0;
+        for (String mode : setting.modes) {
+            float chipWidth = FontUtil.getSafeSmall().getStringWidth(mode) + 14;
+            if (currentX > 0 && currentX + chipWidth > width) {
+                currentX = 0;
+                rows++;
+            }
+            currentX += chipWidth + 4;
+        }
+        return 20 + rows * 19;
+    }
+
+    private void drawMultiModeSetting(MultiModeSetting setting, int x, int y, int width, Color accentColor) {
+        FontUtil.getSafeNormal().drawStringWithShadow(setting.name, x, y + 4, textColor.getRGB());
+        float currentX = x;
+        float currentY = y + 20;
+        for (String mode : setting.modes) {
+            float chipWidth = FontUtil.getSafeSmall().getStringWidth(mode) + 14;
+            if (currentX > x && currentX + chipWidth > x + width) {
+                currentX = x;
+                currentY += 19;
+            }
+            boolean selected = setting.isSelected(mode);
+            Color background = selected
+                    ? new Color(accentColor.getRed(), accentColor.getGreen(), accentColor.getBlue(), 190)
+                    : new Color(42, 43, 49);
+            GreenRender.fillRR(currentX, currentY, chipWidth, 15, 3, background);
+            FontUtil.getSafeSmall().drawStringWithShadow(mode, currentX + 7, currentY + 4,
+                    selected ? Color.WHITE.getRGB() : subtleTextColor.getRGB());
+            currentX += chipWidth + 4;
+        }
+    }
+
+    private boolean toggleMultiModeAt(MultiModeSetting setting, int mouseX, int mouseY, int x, int y, int width) {
+        float currentX = x;
+        float currentY = y + 20;
+        for (String mode : setting.modes) {
+            float chipWidth = FontUtil.getSafeSmall().getStringWidth(mode) + 14;
+            if (currentX > x && currentX + chipWidth > x + width) {
+                currentX = x;
+                currentY += 19;
+            }
+            if (mouseX >= currentX && mouseX <= currentX + chipWidth
+                    && mouseY >= currentY && mouseY <= currentY + 15) {
+                setting.toggle(mode);
+                return true;
+            }
+            currentX += chipWidth + 4;
+        }
+        return false;
+    }
     
     private void drawToggleButton(int x, int y, boolean enabled) {
         Color accentColor = getAccentColor();
@@ -500,10 +562,21 @@ public class KingCanvasGUI extends GuiScreen {
             if (expandedModules.contains(module)) {
                 for (Setting setting : module.getSettings()) {
                     if (setting.isVisible()) {
-                        int settingRowHeight = (setting instanceof NumberSetting) ? 28 : 20;
+                        int settingRowHeight = setting instanceof NumberSetting ? 28
+                                : setting instanceof MultiModeSetting ? getMultiModeRowHeight((MultiModeSetting) setting, mainPanelWidth - 30)
+                                : 20;
                         if (setting == expandedColorSetting) settingRowHeight += 65;
                         
                         currentY += 20;
+                        if (setting instanceof MultiModeSetting) {
+                            if (mouseButton == 0 && isMouseOver(mouseX, mouseY, mainX, (int) currentY, mainPanelWidth, settingRowHeight)
+                                    && toggleMultiModeAt((MultiModeSetting) setting, mouseX, mouseY,
+                                    mainX + 15, (int) currentY, mainPanelWidth - 30)) {
+                                return;
+                            }
+                            currentY += settingRowHeight - 20;
+                            continue;
+                        }
                         if (setting instanceof NumberSetting) currentY += 8;
                         
                         if (setting == expandedColorSetting) {
@@ -692,6 +765,9 @@ public class KingCanvasGUI extends GuiScreen {
                         if (setting.isVisible()) {
                             currentY += 20;
                             if (setting instanceof NumberSetting) currentY += 8;
+                            if (setting instanceof MultiModeSetting) {
+                                currentY += getMultiModeRowHeight((MultiModeSetting) setting, mainPanelWidth - 30) - 20;
+                            }
                             
                             if (setting == expandedColorSetting) {
                                 int pickerX = mainX + 15;
@@ -800,8 +876,9 @@ public class KingCanvasGUI extends GuiScreen {
             if (expandedModules.contains(module)) {
                 for (Setting setting : module.getSettings()) {
                     if (setting.isVisible()) {
-                        totalHeight += 20;
-                        if (setting instanceof NumberSetting) totalHeight += 8;
+                        totalHeight += setting instanceof NumberSetting ? 28
+                                : setting instanceof MultiModeSetting ? getMultiModeRowHeight((MultiModeSetting) setting, mainPanelWidth - 30)
+                                : 20;
                         if (setting == expandedColorSetting) totalHeight += 65;
                     }
                 }
