@@ -119,7 +119,7 @@ public class TargetHUD extends Module {
 
             GreenRender.fillRR(barX, barY, barW, barH, 3, new Color(10, 10, 10, (int)(150 * alphaMult)));
 
-            Color c1 = HUD.getColor() == 0 ? new Color(101, 153, 239) : new Color(HUD.getColor());
+            Color c1 = ClickGUIModule.getColor() == 0 ? new Color(101, 153, 239) : new Color(ClickGUIModule.getColor());
             Color c2 = c1.darker();
 
             if (displayHealth > 0.01f) {

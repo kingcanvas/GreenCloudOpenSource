@@ -23,10 +23,10 @@ public class FontUtil {
             log.info("Android is on the system.");
             normal = bold = large = small = null;
         } else {
-            normal = loadFont("Inter-Regular.ttf", 20f);
-            bold = loadFont("Inter-Bold.ttf", 20f);
-            large = loadFont("Inter-ExtraBold.ttf", 24f);
-            small = loadFont("Segoe UI.ttf", 18f);
+            normal = loadFont("Inter-Regular.ttf", 10f);
+            bold = loadFont("Inter-Bold.ttf", 10f);
+            large = loadFont("Inter-ExtraBold.ttf", 12f);
+            small = loadFont("Inter-Medium.ttf", 9f);
         }
         log.info("Custom fonts loaded");
     }
@@ -37,12 +37,12 @@ public class FontUtil {
             InputStream is = Minecraft.getMinecraft().getResourceManager()
                     .getResource(new ResourceLocation("greencloudclient", "fonts/" + location))
                     .getInputStream();
-            Font font = Font.createFont(Font.TRUETYPE_FONT, is).deriveFont(size);
+            Font font = Font.createFont(Font.TRUETYPE_FONT, is);
             log.debug("Font loaded: " + location);
-            return new CustomFontRenderer(font, true, true);
+            return new CustomFontRenderer(font, size);
         } catch (Exception e) {
-            log.warn("Failed to load font '" + location + "', falling back to Arial: " + e.getMessage(), e);
-            return new CustomFontRenderer(new Font("Arial", Font.PLAIN, (int) size), true, true);
+            log.warn("Failed to load font '" + location + "', falling back to SansSerif: " + e.getMessage(), e);
+            return new CustomFontRenderer(new Font(Font.SANS_SERIF, Font.PLAIN, 1), size);
         }
     }
     
@@ -68,7 +68,7 @@ public class FontUtil {
         }
         
         public void drawCenteredString(String text, float x, float y, int color) {
-            if (renderer != null) renderer.drawString(text, x - renderer.getStringWidth(text) / 2f, y, color);
+            if (renderer != null) renderer.drawCenteredString(text, x, y, color);
             else mc().fontRendererObj.drawString(text, (int) x - mc().fontRendererObj.getStringWidth(text) / 2, (int) y, color);
         }
         
@@ -77,7 +77,7 @@ public class FontUtil {
             StringBuilder line = new StringBuilder();
             float currY = y;
             for (String word : words) {
-                if (getStringWidth(line + word) > width) {
+                if (getWidth(line + word) > width) {
                     drawString(line.toString(), x, currY, color);
                     line = new StringBuilder(word + " ");
                     currY += getHeight() + 2;
@@ -89,7 +89,12 @@ public class FontUtil {
         }
         
         public int getStringWidth(String text) {
-            if (renderer != null) return (int) Math.ceil(renderer.getStringWidth(text));
+            if (renderer != null) return renderer.getStringWidth(text);
+            return mc().fontRendererObj.getStringWidth(text);
+        }
+        
+        public float getWidth(String text) {
+            if (renderer != null) return renderer.getWidth(text);
             return mc().fontRendererObj.getStringWidth(text);
         }
         

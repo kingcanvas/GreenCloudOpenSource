@@ -1,7 +1,7 @@
 package greencloudclient.com.gui.components;
 
 import greencloudclient.com.gui.buttons.ModuleButton;
-import greencloudclient.com.modules.impl.render.HUD;
+import greencloudclient.com.modules.impl.render.ClickGUIModule;
 import greencloudclient.com.settings.ModeSetting;
 import greencloudclient.com.utils.render.GreenRender;
 import greencloudclient.com.utils.font.FontUtil;
@@ -27,7 +27,7 @@ public class ModeComponent extends Component {
     }
 
     private Color accent() {
-        return new Color(HUD.getColor(), true);
+        return new Color(ClickGUIModule.getColor(), true);
     }
 
     @Override
@@ -35,12 +35,11 @@ public class ModeComponent extends Component {
         float fh = FontUtil.getSafeSmall().getHeight();
         float midY = y + (HEADER_H - fh) / 2f;
 
-        FontUtil.getSafeSmall().drawString(ms.name, x + PAD_X, midY, -1);
-
         String cur = ms.currentMode;
         float tw = FontUtil.getSafeSmall().getStringWidth(cur);
         float bw = tw + 12f;
         float bx = x + width - bw - PAD_X;
+        FontUtil.getSafeSmall().drawString(fitLabel(ms.name, bx - x - PAD_X - 6f), x + PAD_X, midY, -1);
         float by = y + (HEADER_H / 2f) - 9f;
 
         Color ac = accent();

@@ -1,7 +1,7 @@
 package greencloudclient.com.gui.components;
 
 import greencloudclient.com.gui.buttons.ModuleButton;
-import greencloudclient.com.modules.impl.render.HUD;
+import greencloudclient.com.modules.impl.render.ClickGUIModule;
 import greencloudclient.com.settings.StringSetting;
 import greencloudclient.com.settings.Setting;
 import greencloudclient.com.utils.font.FontUtil;
@@ -28,7 +28,7 @@ public class StringComponent extends Component {
         GreenRender.fillRR(bx, by, bw, bh, 3, new Color(32, 34, 37));
 
         if (focused) {
-            GreenRender.outlineRR(bx, by, bw, bh, 3, 1f, new Color(HUD.getColor(), true));
+            GreenRender.outlineRR(bx, by, bw, bh, 3, 1f, new Color(ClickGUIModule.getColor(), true));
         }
 
         String text = stringSetting.getValue();

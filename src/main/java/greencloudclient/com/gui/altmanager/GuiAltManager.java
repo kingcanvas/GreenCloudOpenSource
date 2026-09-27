@@ -17,7 +17,7 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
-import greencloudclient.com.modules.impl.render.HUD;
+import greencloudclient.com.modules.impl.render.ClickGUIModule;
 import java.awt.*;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -133,7 +133,7 @@ public class GuiAltManager extends GuiScreen {
         int total = altManager.getAlts().size();
         FontUtil.getSafeSmall().drawString("ACCOUNTS: " + total, 25, 140, 0xFF999999);
 
-        int accent = HUD.getColor();
+        int accent = ClickGUIModule.getColor();
         FontUtil.getSafeSmall().drawString("QUICK ADD", 25, 180, accent);
         float fieldY = 195;
         GreenRender.fillRR(20, fieldY, w - 40, 24, 4, col(0, 0, 0, 100));
@@ -164,7 +164,7 @@ public class GuiAltManager extends GuiScreen {
         float x = sidebarW + 40;
         float y = 40;
         
-        int accent = HUD.getColor();
+        int accent = ClickGUIModule.getColor();
         FontUtil.getSafeLarge().drawString("GREENCLOUD", x, y, -1);
         FontUtil.getSafeNormal().drawString("ALT MANAGER", x + FontUtil.getSafeLarge().getStringWidth("GREENCLOUD") + 6, y + 2, accent);
 
@@ -226,7 +226,7 @@ public class GuiAltManager extends GuiScreen {
 
     private void drawModernBtn(String text, float x, float y, float w, float h, int mx, int my, Runnable action) {
         boolean hov = mx >= x && mx <= x + w && my >= y && my <= y + h;
-        int accent = HUD.getColor();
+        int accent = ClickGUIModule.getColor();
         int bg = hov ? col(255, 255, 255, 15) : col(30, 30, 35, 200);
         GreenRender.fillRR(x, y, w, h, 6, bg);
         GreenRender.outlineRR(x, y, w, h, 6, 1.2f, hov ? accent : C_OUTLINE);

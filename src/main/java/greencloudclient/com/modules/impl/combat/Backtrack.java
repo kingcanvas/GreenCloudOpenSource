@@ -3,7 +3,7 @@ package greencloudclient.com.modules.impl.combat;
 import greencloudclient.com.events.PacketEvent;
 import greencloudclient.com.modules.Category;
 import greencloudclient.com.modules.Module;
-import greencloudclient.com.modules.impl.render.HUD;
+import greencloudclient.com.modules.impl.render.ClickGUIModule;
 import greencloudclient.com.settings.BooleanSetting;
 import greencloudclient.com.settings.NumberSetting;
 import greencloudclient.com.utils.TimerUtil;
@@ -273,7 +273,7 @@ public class Backtrack extends Module {
         double w = (t != null ? t.width  : 0.6) / 2.0 + 0.05;
         double h = (t != null ? t.height : 1.8) + 0.1;
 
-        Color base    = new Color(HUD.getColor(), true);
+        Color base    = new Color(ClickGUIModule.getColor(), true);
         Color fill    = GreenRender.withAlpha(base, renderAlpha * 0.15f);
         Color outline = GreenRender.withAlpha(base, renderAlpha * 0.9f);
         Color edge    = GreenRender.withAlpha(base, renderAlpha * 0.5f);

@@ -3,14 +3,18 @@ package greencloudclient.com.modules.impl.combat;
 import greencloudclient.com.GreenCloud;
 import greencloudclient.com.modules.Category;
 import greencloudclient.com.modules.Module;
-import greencloudclient.com.settings.NumberSetting;
 import greencloudclient.com.settings.BooleanSetting;
 import greencloudclient.com.settings.ModeSetting;
-import greencloudclient.com.utils.RotationManager;
+import greencloudclient.com.settings.NumberSetting;
+import greencloudclient.com.utils.player.ClickTimer;
+import greencloudclient.com.utils.rotation.MovementCorrection;
+import greencloudclient.com.utils.rotation.Noise;
+import greencloudclient.com.utils.rotation.RotationEngine;
+import greencloudclient.com.utils.rotation.TargetTracker;
+import greencloudclient.com.utils.rotation.TrackingError;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
-import greencloudclient.com.utils.player.MoveUtil;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovementInput;
@@ -20,525 +24,365 @@ import net.minecraftforge.client.event.RenderPlayerEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Random;
 
 public class KillAura extends Module {
 
-    private final ModeSetting mode = new ModeSetting("Mode", this, "Normal", "Normal", "Legit");
+    private final ModeSetting mode = new ModeSetting("Mode", this, "Natural", "Natural", "Linear");
 
     private final NumberSetting cps = new NumberSetting("CPS", this, 9.0, 13.0, 1.0, 20.0, 0.5, true);
+    private final ModeSetting clickMode = new ModeSetting("Randomization", this, "Extra", ClickTimer.MODES);
+    private final NumberSetting rotationSpeed = new NumberSetting("Rotation Speed", this, 4.5, 6.0, 1.0, 10.0, 0.1, true);
+    private final NumberSetting range = new NumberSetting("Range", this, 3.0, 1.0, 6.0, 0.05);
+    private final NumberSetting aimRange = new NumberSetting("Aim Range", this, 4.5, 1.0, 8.0, 0.1);
+    private final NumberSetting fov = new NumberSetting("FOV", this, 180.0, 30.0, 360.0, 10.0);
+    private final BooleanSetting teams = new BooleanSetting("Teams", this, true);
 
-    private final NumberSetting rotationSpeed = new NumberSetting("Rotation Speed", this, 15.0, 1.0, 50.0, 1.0) {
-        public boolean isVisible() { return mode.is("Normal"); }
-        public boolean isHidden() { return !mode.is("Normal"); }
-    };
-    private final NumberSetting fov = new NumberSetting("FOV", this, 180.0, 30.0, 360.0, 10.0) {
-        public boolean isVisible() { return mode.is("Normal"); }
-        public boolean isHidden() { return !mode.is("Normal"); }
-    };
-    private final NumberSetting preAttackRange = new NumberSetting("Pre-Attack Range", this, 3.0, 1.0, 6.0, 0.1) {
-        public boolean isVisible() { return mode.is("Normal"); }
-        public boolean isHidden() { return !mode.is("Normal"); }
-    };
+    private final NumberSetting reactionTime = new NumberSetting("Reaction Time", this, 150, 0, 500, 10, () -> mode.is("Natural"));
+    private final NumberSetting interpolation = new NumberSetting("Interpolation", this, 0.5, 0.0, 1.0, 0.05, () -> mode.is("Natural"));
+    private final NumberSetting trackingError = new NumberSetting("Tracking Error", this, 0.6, 0.0, 1.0, 0.05, () -> mode.is("Natural"));
+    private final NumberSetting overshoot = new NumberSetting("Overshoot", this, 0.5, 0.0, 1.0, 0.05, () -> mode.is("Natural"));
+    private final NumberSetting jitter = new NumberSetting("Natural Jitter", this, 0.6, 0.0, 3.0, 0.05, () -> mode.is("Natural"));
+    private final NumberSetting jitterSpeed = new NumberSetting("Jitter Speed", this, 1.5, 0.2, 5.0, 0.1,
+            () -> mode.is("Natural") && jitter.getValue() > 0);
 
-    private final NumberSetting legitFov = new NumberSetting("Legit FOV", this, 45.0, 5.0, 360.0, 1.0) {
-        public boolean isVisible() { return mode.is("Legit"); }
-        public boolean isHidden() { return !mode.is("Legit"); }
-    };
-    private final NumberSetting legitSpeed = new NumberSetting("Legit Speed", this, 3.0, 0.5, 10.0, 0.1) {
-        public boolean isVisible() { return mode.is("Legit"); }
-        public boolean isHidden() { return !mode.is("Legit"); }
-    };
-    private final NumberSetting legitRange = new NumberSetting("Legit Range", this, 4.5, 2.0, 8.0, 0.1) {
-        public boolean isVisible() { return mode.is("Legit"); }
-        public boolean isHidden() { return !mode.is("Legit"); }
-    };
-    private final BooleanSetting blockCheck = new BooleanSetting("Block Check", this, true) {
-        public boolean isVisible() { return mode.is("Legit"); }
-        public boolean isHidden() { return !mode.is("Legit"); }
-    };
+    private final RotationEngine rotator = new RotationEngine();
+    private final RotationEngine.Profile profile = new RotationEngine.Profile();
+    private final RotationEngine.Profile returnProfile = new RotationEngine.Profile();
+    private final TargetTracker tracker = new TargetTracker();
+    private final TrackingError aimError = new TrackingError();
+    private final MovementCorrection correction = new MovementCorrection();
+    private final Noise noise = new Noise();
+    private final ClickTimer clickTimer = new ClickTimer();
+    private final Random random = new Random();
 
-    private EntityLivingBase target = null;
-    private long nextDelay = 0L;
-    private double delayAccumulator = 0.0;
-    private long lastTickTime = 0L;
-
-    private double aimOffsetX = 0;
-    private double aimOffsetY = 0;
-    private int offsetTimer = 0;
-
-    private float smoothYaw = 0f;
-    private float smoothPitch = 0f;
-
-    private float[] cachedRotations = null;
-
+    private EntityLivingBase target;
+    private EntityLivingBase aimedTarget;
     private MovementInput originalKAInput;
 
-    private float normYaw, normPitch, normPrevYaw, normPrevPitch;
-    private float normSavedYaw, normSavedPitch, normSavedPrevYaw, normSavedPrevPitch;
-    private float normSRYO, normSRYH, normSRP, normSPRYO, normSPRYH, normSPRP;
-    private boolean normSpoofing;
-    private boolean normCoasting;
-    private int normAimTicks;
-    private float normNoiseX, normNoiseY;
+    private boolean aiming, spoofing;
+    private boolean disengaging;
+    private int disengageTicks;
+    private static final int MAX_DISENGAGE_TICKS = 40;
+    private float prevYaw, prevPitch;
+    private float lastCameraYaw, lastCameraPitch;
+    private float savedYaw, savedPitch;
+    private float sRYO, sRYH, sRP, sPRYO, sPRYH, sPRP;
 
-    private double aimOffXSmooth, aimOffYSmooth, aimOffZSmooth;
-    private double aimOffXTarget, aimOffYTarget, aimOffZTarget;
-    private int aimPointTimer;
-    private EntityLivingBase lastTarget;
+    private long nextDelay;
+    private double delayAccumulator;
+    private long lastTickTime;
 
-    private final Random random = new Random();
-    private double speedFactor = 1.0;
-    private int clicksInCurrentStreak = 0;
-    private int streakTarget = 10;
+    private double aimHeight = 0.72, aimHeightTarget = 0.72;
+    private int aimHeightTimer;
 
     public KillAura() {
         super("KillAura", Category.COMBAT);
-        addSettings(
-                mode, cps,
-                rotationSpeed, fov, preAttackRange,
-                legitFov, legitSpeed, legitRange, blockCheck
-        );
+        addSettings(mode, cps, clickMode, rotationSpeed, range, aimRange, fov, teams,
+                reactionTime, interpolation, trackingError, overshoot, jitter, jitterSpeed);
     }
-    
+
     @Override
     public String[] getBindAliases() {
         return new String[] {
                 "KillAura", "Aura"
         };
     }
-    
+
     @Override
     public void onEnable() {
-        super.onEnable();
+        boolean resuming = disengaging;
+        disengaging = false;
+        if (!resuming) {
+            super.onEnable();
+            aiming = spoofing = false;
+        }
         target = null;
-        cachedRotations = null;
+        aimHeightTimer = 0;
         lastTickTime = System.currentTimeMillis();
         delayAccumulator = 0.0;
-        clicksInCurrentStreak = 0;
-        streakTarget = 5 + random.nextInt(10);
-        nextDelay = calculateDelay();
-        smoothYaw = 0f;
-        smoothPitch = 0f;
-        normSpoofing = false;
-        normCoasting = false;
-        normAimTicks = 0;
-        normNoiseX = normNoiseY = 0f;
-        aimOffXSmooth = aimOffYSmooth = aimOffZSmooth = 0;
-        aimOffXTarget = aimOffYTarget = aimOffZTarget = 0;
-        aimPointTimer = 0;
-        lastTarget = null;
+        clickTimer.reset();
+        nextDelay = nextClickDelay();
         if (mc.thePlayer != null) {
-            normYaw = mc.thePlayer.rotationYaw;
-            normPitch = mc.thePlayer.rotationPitch;
-            normPrevYaw = normYaw;
-            normPrevPitch = normPitch;
+            if (!resuming) {
+                rotator.reset(mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
+                tracker.clear();
+                correction.reset();
+            }
+            lastCameraYaw = mc.thePlayer.rotationYaw;
+            lastCameraPitch = mc.thePlayer.rotationPitch;
 
             MovementInput cur = mc.thePlayer.movementInput;
             originalKAInput = (cur instanceof KAMovementInput) ? ((KAMovementInput) cur).parent : cur;
             mc.thePlayer.movementInput = new KAMovementInput(originalKAInput);
         }
-        RotationManager.getInstance().reset();
     }
 
     @Override
     public void onDisable() {
-        if (normSpoofing && mc.thePlayer != null) {
-            mc.thePlayer.rotationYaw = normSavedYaw;
-            mc.thePlayer.rotationPitch = normSavedPitch;
-            mc.thePlayer.prevRotationYaw = normSavedPrevYaw;
-            mc.thePlayer.prevRotationPitch = normSavedPrevPitch;
-            normSpoofing = false;
+        target = null;
+        if (aiming && mc.thePlayer != null) {
+            disengaging = true;
+            disengageTicks = 0;
+            return;
         }
+        finishDisable();
+    }
+
+    private void finishDisable() {
+        disengaging = false;
+        restoreRotation();
+        aiming = false;
         if (mc.thePlayer != null && originalKAInput != null) {
             mc.thePlayer.movementInput = originalKAInput;
             originalKAInput = null;
         }
-        RotationManager.getInstance().reset();
         target = null;
-        cachedRotations = null;
         super.onDisable();
     }
 
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
-        if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) return;
-
-        if (event.phase == TickEvent.Phase.START) {
-            if (mode.is("Legit")) {
-                if (normSpoofing) {
-                    mc.thePlayer.rotationYaw = normSavedYaw;
-                    mc.thePlayer.rotationPitch = normSavedPitch;
-                    mc.thePlayer.prevRotationYaw = normSavedYaw;
-                    mc.thePlayer.prevRotationPitch = normSavedPitch;
-                    normSpoofing = false;
-                }
-                RotationManager.getInstance().reset();
-                target = getBestLegitTarget();
-
-                if (target != null) {
-                    boolean isBlocking = blockCheck.enabled
-                            && mc.playerController != null
-                            && mc.playerController.getIsHittingBlock();
-
-                    if (!isBlocking) {
-                        cachedRotations = getRotations(target);
-                        rotateOffset();
-                    } else {
-                        cachedRotations = null;
-                    }
-                } else {
-                    cachedRotations = null;
-                }
-            } else {
-                RotationManager.getInstance().reset();
-                tickNormalMode();
-            }
-
-            long now = System.currentTimeMillis();
-            long elapsed = now - lastTickTime;
-            lastTickTime = now;
-            if (elapsed > 200) elapsed = 50;
-
-            delayAccumulator += elapsed;
-
-            double attackDist = getAttackDist();
-            int clicksThisTick = 0;
-
-            while (delayAccumulator >= nextDelay && clicksThisTick < 2) {
-                boolean shouldClick = false;
-
-                if (mode.is("Legit")) {
-                    if (mc.objectMouseOver != null
-                            && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY
-                            && mc.thePlayer.getDistanceToEntity(mc.objectMouseOver.entityHit) <= attackDist) {
-                        shouldClick = true;
-                    }
-                } else {
-                    if (target != null && mc.thePlayer.getDistanceToEntity(target) <= attackDist) {
-                        Vec3 eyes = mc.thePlayer.getPositionEyes(1.0f);
-                        float cosYaw = MathHelper.cos(-normYaw * 0.017453292F - (float) Math.PI);
-                        float sinYaw = MathHelper.sin(-normYaw * 0.017453292F - (float) Math.PI);
-                        float cosPitch = -MathHelper.cos(-normPitch * 0.017453292F);
-                        float sinPitch = MathHelper.sin(-normPitch * 0.017453292F);
-                        Vec3 look = new Vec3(sinYaw * cosPitch, sinPitch, cosYaw * cosPitch);
-                        Vec3 end = eyes.addVector(look.xCoord * attackDist,
-                                                   look.yCoord * attackDist,
-                                                   look.zCoord * attackDist);
-                        AxisAlignedBB aabb =
-                                target.getEntityBoundingBox().expand(0.1, 0.1, 0.1);
-                        MovingObjectPosition intercept = aabb.calculateIntercept(eyes, end);
-                        if (intercept != null) {
-                            mc.objectMouseOver = new MovingObjectPosition(target);
-                            shouldClick = true;
-                        }
-                    }
-                }
-
-                if (shouldClick) {
-                    AutoClicker ac = getAutoClicker();
-                    if (ac != null) ac.click();
-                    clicksThisTick++;
-                }
-
-                delayAccumulator -= nextDelay;
-                nextDelay = calculateDelay();
-            }
-        } else if (event.phase == TickEvent.Phase.END) {
-            if (mode.is("Legit") && target != null) {
-                aimAtTarget();
-            } else if (mode.is("Normal") && normSpoofing) {
-                mc.thePlayer.rotationYaw = normSavedYaw;
-                mc.thePlayer.rotationPitch = normSavedPitch;
-                mc.thePlayer.prevRotationYaw = normSavedYaw;
-                mc.thePlayer.prevRotationPitch = normSavedPitch;
-                normSpoofing = false;
-            }
+        if (mc.thePlayer == null || mc.theWorld == null) {
+            if (disengaging) finishDisable();
+            return;
         }
+
+        if (event.phase == TickEvent.Phase.END) {
+            restoreRotation();
+            if (disengaging && !aiming) finishDisable();
+            return;
+        }
+        if (mc.currentScreen != null) return;
+        if (disengaging && ++disengageTicks > MAX_DISENGAGE_TICKS) {
+            finishDisable();
+            return;
+        }
+
+        updateRotation();
+        if (aiming) applySpoof();
+        if (!disengaging) handleClicks();
     }
 
-    private void tickNormalMode() {
-        normPrevYaw = normYaw;
-        normPrevPitch = normPitch;
-        target = findNormalTarget();
+    private void updateRotation() {
+        float realYaw = mc.thePlayer.rotationYaw;
+        float realPitch = mc.thePlayer.rotationPitch;
+        float cameraVelYaw = MathHelper.wrapAngleTo180_float(realYaw - lastCameraYaw);
+        float cameraVelPitch = realPitch - lastCameraPitch;
+        lastCameraYaw = realYaw;
+        lastCameraPitch = realPitch;
+
+        if (!aiming) rotator.reset(realYaw, realPitch);
+        prevYaw = rotator.yaw;
+        prevPitch = rotator.pitch;
+
+        target = disengaging ? null : findTarget();
+        boolean natural = mode.is("Natural");
 
         if (target != null) {
-            normCoasting = false;
-            if (target != lastTarget) {
-                aimOffXSmooth = aimOffYSmooth = aimOffZSmooth = 0;
-                aimOffXTarget = aimOffYTarget = aimOffZTarget = 0;
-                aimPointTimer = 0;
-                lastTarget = target;
-            }
-            updateAimPoint(target);
-            float[] want = getNormRotations(target);
-            if (want != null) {
-                stepNormRotation(want[0], want[1]);
-                applyNormRotation();
-            }
-        } else {
-            lastTarget = null;
-            aimPointTimer = 0;
-
-            if (normAimTicks > 0 && !normCoasting) {
-                normCoasting = true;
-            }
-
-            if (normCoasting) {
-                float naturalYaw = mc.thePlayer.rotationYaw;
-                float naturalPitch = mc.thePlayer.rotationPitch;
-                float gcd = getNormGCD();
-                float yawDiff = getAngleDifference(naturalYaw, normYaw);
-                float pitchDiff = naturalPitch - normPitch;
-
-                if (Math.abs(yawDiff) < gcd * 1.5f && Math.abs(pitchDiff) < gcd * 1.5f) {
-                    normCoasting = false;
-                    normAimTicks = 0;
-                    normNoiseX = normNoiseY = 0f;
-                    normYaw = naturalYaw;
-                    normPitch = naturalPitch;
-                } else {
-                    float spd = Math.max(8f, (float) rotationSpeed.getValue() * 0.5f);
-                    float moveYaw = MathHelper.clamp_float(yawDiff, -spd, spd);
-                    float movePitch = MathHelper.clamp_float(pitchDiff, -spd, spd);
-                    normYaw += snapLegitGCD(moveYaw, yawDiff, gcd);
-                    normPitch = MathHelper.clamp_float(normPitch + snapLegitGCD(movePitch, pitchDiff, gcd), -90f, 90f);
-                    applyNormRotation();
+            tracker.track(target);
+            if (natural) {
+                if (tracker.isReacting((float) reactionTime.getValue())) return;
+                if (!aiming || target != aimedTarget) {
+                    aimError.reset();
+                    rotator.overshootNext((float) overshoot.getValue());
                 }
-                return;
+                if (!naturalStep(target)) return;
+            } else {
+                float[] want = linearAim(target);
+                if (want == null) return;
+                float min = degreesPerTick(rotationSpeed.getValue()), max = degreesPerTick(rotationSpeed.maxValue);
+                rotator.stepLinear(want[0], want[1], min + random.nextFloat() * (max - min));
             }
-
-            normAimTicks = 0;
-            normNoiseX = normNoiseY = 0f;
-            normYaw = mc.thePlayer.rotationYaw;
-            normPitch = mc.thePlayer.rotationPitch;
+            aiming = true;
+            aimedTarget = target;
+            return;
         }
+
+        tracker.clear();
+        aimedTarget = null;
+        if (!aiming) return;
+
+        float gcd = RotationEngine.gcd();
+        if (rotator.distanceTo(realYaw, realPitch) < gcd * 1.5f) {
+            aiming = false;
+            return;
+        }
+        returnProfile.speedMin = returnProfile.speedMax = (float) Math.max(6.0, rotationSpeed.maxValue);
+        returnProfile.reactionMs = 60f;
+        returnProfile.smoothing = natural ? (float) interpolation.getValue() : 0.3f;
+        returnProfile.error = 0f;
+        returnProfile.tremor = 0f;
+        rotator.stepHuman(realYaw, realPitch, cameraVelYaw, cameraVelPitch, gcd, 6f, returnProfile);
     }
 
-    private void updateAimPoint(EntityLivingBase entity) {
-        aimPointTimer--;
-        if (aimPointTimer <= 0) {
-            double hw = entity.width * 0.35;
-            double h = entity.height;
-            aimOffXTarget = (random.nextDouble() * 2 - 1) * hw;
-            aimOffZTarget = (random.nextDouble() * 2 - 1) * hw;
-            double[] yLevels = { h * 0.85, h * 0.65, h * 0.45, h * 0.2 };
-            aimOffYTarget = yLevels[random.nextInt(yLevels.length)] + random.nextGaussian() * 0.04;
-            aimPointTimer = 8 + random.nextInt(16);
-        }
-        double alpha = 0.10 + random.nextDouble() * 0.08;
-        aimOffXSmooth += (aimOffXTarget - aimOffXSmooth) * alpha;
-        aimOffYSmooth += (aimOffYTarget - aimOffYSmooth) * alpha;
-        aimOffZSmooth += (aimOffZTarget - aimOffZSmooth) * alpha;
+    private static float degreesPerTick(double speed) {
+        return (float) (3.0 * Math.pow(60.0, (speed - 1.0) / 9.0));
     }
 
-    private float[] getNormRotations(EntityLivingBase entity) {
-        double x = entity.posX + aimOffXSmooth;
-        double y = entity.posY + aimOffYSmooth;
-        double z = entity.posZ + aimOffZSmooth;
+    private boolean naturalStep(EntityLivingBase entity) {
+        float error = (float) trackingError.getValue();
+        double t = noise.seconds();
+
+        float lead = (float) (1.0 - error * (0.55 + noise.fractal(t * 0.3, 503L) * 0.35));
+        double[] seen = tracker.perceive((float) reactionTime.getValue(), lead);
+        if (seen == null) return false;
+
+        if (--aimHeightTimer <= 0) {
+            aimHeightTarget = 0.5 + random.nextDouble() * 0.38;
+            aimHeightTimer = 12 + random.nextInt(18);
+        }
+        aimHeight += (aimHeightTarget - aimHeight) * 0.12;
+
+        double ax = seen[0], ay = seen[1] + entity.height * aimHeight, az = seen[2];
+        float[] now = rotationsTo(ax, ay, az);
+        if (now == null) return false;
+
+        double selfVX = mc.thePlayer.posX - mc.thePlayer.lastTickPosX;
+        double selfVZ = mc.thePlayer.posZ - mc.thePlayer.lastTickPosZ;
+        float[] next = rotationsTo(ax + seen[3] - selfVX, ay, az + seen[4] - selfVZ);
+        float velYaw = next == null ? 0f : MathHelper.wrapAngleTo180_float(next[0] - now[0]);
+        float velPitch = next == null ? 0f : next[1] - now[1];
+
+        double dx = ax - mc.thePlayer.posX;
+        double dy = ay - (mc.thePlayer.posY + mc.thePlayer.getEyeHeight());
+        double dz = az - mc.thePlayer.posZ;
+        double dist = Math.max(0.5, Math.sqrt(dx * dx + dy * dy + dz * dz));
+        float size = (float) Math.toDegrees(2.0 * Math.atan2(entity.width * 0.5, dist));
+        float tolerance = size * (0.08f + 0.35f * error);
+
+        float lateral = (float) (Math.toRadians(velYaw) * dist);
+        float selfSpeed = (float) Math.sqrt(selfVX * selfVX + selfVZ * selfVZ);
+        float[] off = aimError.update(lateral, selfSpeed, (float) dist, entity.width, entity.height, error);
+
+        profile.speedMin = (float) rotationSpeed.getValue();
+        profile.speedMax = (float) rotationSpeed.maxValue;
+        profile.reactionMs = (float) reactionTime.getValue();
+        profile.smoothing = (float) interpolation.getValue();
+        profile.error = error;
+        profile.tremor = (float) jitter.getValue();
+        profile.tremorSpeed = (float) jitterSpeed.getValue();
+
+        rotator.stepHuman(now[0] + off[0], MathHelper.clamp_float(now[1] + off[1], -90f, 90f),
+                velYaw, velPitch, tolerance, size, profile);
+        return true;
+    }
+
+    private float[] linearAim(EntityLivingBase entity) {
+        AxisAlignedBB bb = entity.getEntityBoundingBox();
+        double eyeX = mc.thePlayer.posX;
+        double eyeY = mc.thePlayer.posY + mc.thePlayer.getEyeHeight();
+        double eyeZ = mc.thePlayer.posZ;
+        double inset = 0.05;
+        double x = MathHelper.clamp_double(eyeX, bb.minX + inset, bb.maxX - inset);
+        double y = MathHelper.clamp_double(eyeY, bb.minY + inset, bb.maxY - inset);
+        double z = MathHelper.clamp_double(eyeZ, bb.minZ + inset, bb.maxZ - inset);
+        return rotationsTo(x, y, z);
+    }
+
+    private float[] rotationsTo(double x, double y, double z) {
         double dx = x - mc.thePlayer.posX;
         double dy = y - (mc.thePlayer.posY + mc.thePlayer.getEyeHeight());
         double dz = z - mc.thePlayer.posZ;
         double dist = Math.sqrt(dx * dx + dz * dz);
-        if (dist == 0) return null;
-        float yaw = (float)(Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
-        float pitch = (float)(-Math.toDegrees(Math.atan2(dy, dist)));
+        if (dist < 1.0E-4) return null;
+        float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, dist));
         return new float[]{yaw, pitch};
     }
 
-    private void stepNormRotation(float targetYaw, float targetPitch) {
-        float speed = (float) rotationSpeed.getValue();
-        float gcd = getNormGCD();
-
-        normNoiseX = MathHelper.clamp_float(normNoiseX + (random.nextFloat() - 0.5f) * 1.5f, -2f, 2f);
-        normNoiseY = MathHelper.clamp_float(normNoiseY + (random.nextFloat() - 0.5f) * 0.8f, -1f, 1f);
-
-        float easeIn = Math.min(1.0f, (normAimTicks + 1) / 6.0f);
-
-        float dYaw = getAngleDifference(targetYaw, normYaw);
-        float dPitch = targetPitch - normPitch;
-
-        dYaw = MathHelper.clamp_float(dYaw, -speed * easeIn, speed * easeIn);
-        dPitch = MathHelper.clamp_float(dPitch, -speed * easeIn, speed * easeIn);
-
-        normYaw += Math.round(dYaw / gcd + normNoiseX) * gcd;
-        normPitch = MathHelper.clamp_float(normPitch + Math.round(dPitch / gcd + normNoiseY) * gcd, -90f, 90f);
-    }
-
-    private void applyNormRotation() {
-        if (!normSpoofing) {
-            normSavedYaw = mc.thePlayer.rotationYaw;
-            normSavedPitch = mc.thePlayer.rotationPitch;
-            normSavedPrevYaw = mc.thePlayer.prevRotationYaw;
-            normSavedPrevPitch = mc.thePlayer.prevRotationPitch;
+    private void applySpoof() {
+        if (!spoofing) {
+            savedYaw = mc.thePlayer.rotationYaw;
+            savedPitch = mc.thePlayer.rotationPitch;
         }
-        mc.thePlayer.rotationYaw = normYaw;
-        mc.thePlayer.rotationPitch = normPitch;
-        mc.thePlayer.prevRotationYaw = normPrevYaw;
-        mc.thePlayer.prevRotationPitch = normPrevPitch;
-        normSpoofing = true;
-        normAimTicks++;
+        mc.thePlayer.rotationYaw = rotator.yaw;
+        mc.thePlayer.rotationPitch = rotator.pitch;
+        mc.thePlayer.prevRotationYaw = prevYaw;
+        mc.thePlayer.prevRotationPitch = prevPitch;
+        spoofing = true;
     }
 
-    private float getNormGCD() {
-        float f = mc.gameSettings.mouseSensitivity * 0.6F + 0.2F;
-        float step = f * f * f * 8.0F * 0.15f;
-        return step == 0 ? 0.0001f : step;
+    private void restoreRotation() {
+        if (!spoofing || mc.thePlayer == null) return;
+        mc.thePlayer.rotationYaw = savedYaw;
+        mc.thePlayer.rotationPitch = savedPitch;
+        mc.thePlayer.prevRotationYaw = savedYaw;
+        mc.thePlayer.prevRotationPitch = savedPitch;
+        spoofing = false;
     }
 
-    @SubscribeEvent
-    public void onRenderPlayerPre(RenderPlayerEvent.Pre event) {
-        if (!normSpoofing || !mode.is("Normal") || event.entityPlayer != mc.thePlayer) return;
-        normSRYO = event.entityPlayer.renderYawOffset;
-        normSRYH = event.entityPlayer.rotationYawHead;
-        normSRP = event.entityPlayer.rotationPitch;
-        normSPRYO = event.entityPlayer.prevRenderYawOffset;
-        normSPRYH = event.entityPlayer.prevRotationYawHead;
-        normSPRP = event.entityPlayer.prevRotationPitch;
+    private void handleClicks() {
+        long now = System.currentTimeMillis();
+        long elapsed = now - lastTickTime;
+        lastTickTime = now;
+        if (elapsed > 200) elapsed = 50;
+        delayAccumulator += elapsed;
 
-        event.entityPlayer.renderYawOffset = normYaw;
-        event.entityPlayer.rotationYawHead = normYaw;
-        event.entityPlayer.rotationPitch = normPitch;
-        event.entityPlayer.prevRenderYawOffset = normPrevYaw;
-        event.entityPlayer.prevRotationYawHead = normPrevYaw;
-        event.entityPlayer.prevRotationPitch = normPrevPitch;
-    }
-
-    @SubscribeEvent
-    public void onRenderPlayerPost(RenderPlayerEvent.Post event) {
-        if (!normSpoofing || !mode.is("Normal") || event.entityPlayer != mc.thePlayer) return;
-        event.entityPlayer.renderYawOffset = normSRYO;
-        event.entityPlayer.rotationYawHead = normSRYH;
-        event.entityPlayer.rotationPitch = normSRP;
-        event.entityPlayer.prevRenderYawOffset = normSPRYO;
-        event.entityPlayer.prevRotationYawHead = normSPRYH;
-        event.entityPlayer.prevRotationPitch = normSPRP;
-    }
-
-    private void aimAtTarget() {
-        if (cachedRotations == null) return;
-        float targetYaw = cachedRotations[0] + (float) aimOffsetX;
-        float targetPitch = cachedRotations[1] + (float) aimOffsetY;
-
-        float yawDiff = getAngleDifference(targetYaw, mc.thePlayer.rotationYaw);
-        float pitchDiff = targetPitch - mc.thePlayer.rotationPitch;
-
-        float gcd = getNormGCD();
-        if (Math.abs(yawDiff) < gcd * 0.5f && Math.abs(pitchDiff) < gcd * 0.5f) return;
-
-        float spd = (float) legitSpeed.getValue();
-        float angularDist = (float) Math.sqrt(yawDiff * yawDiff + pitchDiff * pitchDiff);
-        float distFactor = MathHelper.clamp_float(angularDist / 20f, 0.2f, 1.0f);
-        float baseMove = spd * distFactor;
-
-        float moveYaw = MathHelper.clamp_float(yawDiff, -baseMove, baseMove);
-        float movePitch = MathHelper.clamp_float(pitchDiff, -baseMove, baseMove);
-
-        mc.thePlayer.rotationYaw += snapLegitGCD(moveYaw, yawDiff, gcd);
-        mc.thePlayer.rotationPitch  = MathHelper.clamp_float(
-            mc.thePlayer.rotationPitch + snapLegitGCD(movePitch, pitchDiff, gcd), -90f, 90f);
-    }
-
-    private float snapLegitGCD(float move, float diff, float gcd) {
-        float snapped = Math.round(move / gcd) * gcd;
-        if (diff > 0) return Math.min(snapped, diff);
-        if (diff < 0) return Math.max(snapped, diff);
-        return 0f;
-    }
-
-    private float clamp(float val, float min, float max) {
-        return Math.max(min, Math.min(max, val));
-    }
-
-    private void rotateOffset() {
-        offsetTimer--;
-        if (offsetTimer <= 0) {
-            aimOffsetX = random.nextGaussian() * 1.5;
-            aimOffsetY = random.nextGaussian() * 1.5;
-            offsetTimer = 5 + random.nextInt(10);
-        }
-    }
-
-    private float floorToGCD(float value) {
-        float sens = mc.gameSettings.mouseSensitivity * 0.6F + 0.2F;
-        float step = sens * sens * sens * 8.0F * 0.15F;
-        float sign = value < 0 ? -1f : 1f;
-        int steps = (int)(Math.abs(value) / step);
-        return sign * steps * step;
-    }
-
-    private EntityPlayer getBestLegitTarget() {
-        EntityPlayer bestTarget = null;
-        double rangeSq = legitRange.getValue() * legitRange.getValue();
-        double closestFovSq = legitFov.getValue() * legitFov.getValue();
-
-        List<EntityPlayer> players = mc.theWorld.playerEntities;
-        int size = players.size();
-        for (int i = 0; i < size; i++) {
-            EntityPlayer player = players.get(i);
-            if (player == mc.thePlayer) continue;
-            if (player.isDead || player.getHealth() <= 0 || player.isInvisible()) continue;
-            if (isTeam(player)) continue;
-            if (mc.thePlayer.getDistanceSqToEntity(player) > rangeSq) continue;
-
-            float[] rotations = getRotations(player);
-            if (rotations == null) continue;
-
-            float yawDiff = Math.abs(getAngleDifference(rotations[0], mc.thePlayer.rotationYaw));
-            float pitchDiff = Math.abs(rotations[1] - mc.thePlayer.rotationPitch);
-            double fovDistSq = yawDiff * yawDiff + pitchDiff * pitchDiff;
-
-            if (fovDistSq < closestFovSq) {
-                closestFovSq = fovDistSq;
-                bestTarget = player;
+        int clicksThisTick = 0;
+        while (delayAccumulator >= nextDelay && clicksThisTick < 2) {
+            if (aiming && target != null && isLookingAtTarget()) {
+                mc.objectMouseOver = new MovingObjectPosition(target);
+                AutoClicker ac = getAutoClicker();
+                if (ac != null) ac.click();
+                clicksThisTick++;
             }
+            delayAccumulator -= nextDelay;
+            nextDelay = nextClickDelay();
         }
-        return bestTarget;
     }
 
-    private float[] getRotations(EntityLivingBase entity) {
-        double diffX = entity.posX - mc.thePlayer.posX;
-        double diffY = (entity.posY + entity.getEyeHeight() * 0.8) - (mc.thePlayer.posY + mc.thePlayer.getEyeHeight());
-        double diffZ = entity.posZ - mc.thePlayer.posZ;
-        double distance = Math.sqrt(diffX * diffX + diffZ * diffZ);
-        if (distance == 0.0) return null;
+    private boolean isLookingAtTarget() {
+        double reach = range.getValue();
+        if (mc.thePlayer.getDistanceToEntity(target) > reach + 1.0) return false;
 
-        float yaw = (float) (Math.toDegrees(Math.atan2(diffZ, diffX)) - 90.0);
-        float pitch = (float) (-Math.toDegrees(Math.atan2(diffY, distance)));
-        return new float[]{yaw, pitch};
+        Vec3 eyes = mc.thePlayer.getPositionEyes(1.0f);
+        float cosYaw = MathHelper.cos(-rotator.yaw * 0.017453292F - (float) Math.PI);
+        float sinYaw = MathHelper.sin(-rotator.yaw * 0.017453292F - (float) Math.PI);
+        float cosPitch = -MathHelper.cos(-rotator.pitch * 0.017453292F);
+        float sinPitch = MathHelper.sin(-rotator.pitch * 0.017453292F);
+        Vec3 end = eyes.addVector(sinYaw * cosPitch * reach, sinPitch * reach, cosYaw * cosPitch * reach);
+
+        float border = target.getCollisionBorderSize();
+        AxisAlignedBB aabb = target.getEntityBoundingBox().expand(border, border, border);
+        return aabb.isVecInside(eyes) || aabb.calculateIntercept(eyes, end) != null;
     }
 
-    private float getAngleDifference(float target, float current) {
-        return ((((target - current) % 360f) + 540f) % 360f) - 180f;
+    private long nextClickDelay() {
+        return clickTimer.nextDelay(cps.getValue(), cps.maxValue, clickMode.currentMode);
     }
 
-    private EntityLivingBase findNormalTarget() {
-        List<EntityLivingBase> candidates = new ArrayList<>();
-        double scanRange = getAttackDist() + 2.0;
+    private AutoClicker getAutoClicker() {
+        return GreenCloud.moduleManager == null ? null
+                : (AutoClicker) GreenCloud.moduleManager.getModule(AutoClicker.class);
+    }
 
+    private EntityLivingBase findTarget() {
+        double maxDist = Math.max(range.getValue(), aimRange.getValue());
+
+        if (target != null && isValidTarget(target, maxDist)) return target;
+
+        EntityLivingBase best = null;
+        double bestDist = Double.MAX_VALUE;
         for (Entity entity : mc.theWorld.loadedEntityList) {
             if (!(entity instanceof EntityLivingBase)) continue;
             EntityLivingBase living = (EntityLivingBase) entity;
-            if (!isValidNormalTarget(living)) continue;
-            if (mc.thePlayer.getDistanceToEntity(living) > scanRange) continue;
-            if (fov.getValue() < 360 && getAngleToEntity(living) > fov.getValue()) continue;
-            candidates.add(living);
+            if (!isValidTarget(living, maxDist)) continue;
+            double d = mc.thePlayer.getDistanceToEntity(living);
+            if (d < bestDist) {
+                bestDist = d;
+                best = living;
+            }
         }
-
-        if (candidates.isEmpty()) return null;
-        candidates.sort(Comparator.comparingDouble(e -> mc.thePlayer.getDistanceToEntity(e)));
-        return candidates.get(0);
+        return best;
     }
 
-    private boolean isValidNormalTarget(EntityLivingBase entity) {
-        if (entity == mc.thePlayer) return false;
+    private boolean isValidTarget(EntityLivingBase entity, double maxDist) {
+        if (entity == mc.thePlayer || !(entity instanceof EntityPlayer)) return false;
         if (entity.isDead || entity.getHealth() <= 0) return false;
-        if (!(entity instanceof EntityPlayer)) return false;
-        if (isTeam((EntityPlayer) entity)) return false;
-        return true;
+        if (teams.enabled && isTeam((EntityPlayer) entity)) return false;
+        if (mc.thePlayer.getDistanceToEntity(entity) > maxDist) return false;
+        return fov.getValue() >= 360 || getAngleToEntity(entity) <= fov.getValue() / 2.0;
     }
 
     private boolean isTeam(EntityPlayer entity) {
@@ -554,44 +398,42 @@ public class KillAura extends Module {
         double dx = entity.posX - mc.thePlayer.posX;
         double dz = entity.posZ - mc.thePlayer.posZ;
         double yawToE = Math.toDegrees(Math.atan2(dz, dx)) - 90.0;
-        double diff = yawToE - mc.thePlayer.rotationYaw;
-        while (diff > 180.0)  diff -= 360.0;
-        while (diff < -180.0) diff += 360.0;
-        return Math.abs(diff);
-    }
-
-    private double getAttackDist() {
-        return mode.is("Legit") ? legitRange.getValue() : preAttackRange.getValue();
-    }
-
-    private long calculateDelay() {
-        double roll = random.nextDouble();
-        if (roll < 0.04) return 10 + random.nextInt(25);
-        if (roll < 0.07) return 220 + random.nextInt(150);
-
-        double min = cps.getValue();
-        double max = cps.maxValue;
-
-        if (clicksInCurrentStreak >= streakTarget) {
-            clicksInCurrentStreak = 0;
-            streakTarget = 5 + random.nextInt(10);
-            double r = random.nextDouble();
-            if (r < 0.20)      speedFactor = 0.65 + random.nextDouble() * 0.20;
-            else if (r < 0.40) speedFactor = 1.05 + random.nextDouble() * 0.15;
-            else               speedFactor = 0.85 + random.nextDouble() * 0.20;
-        }
-        clicksInCurrentStreak++;
-
-        double targetCPS = Math.max(2.0, Math.min((min + random.nextDouble() * (max - min)) * speedFactor, max + 3.0));
-        return Math.max(10, (long)(1000.0 / targetCPS) + (long)(random.nextGaussian() * 3.0));
-    }
-
-    private AutoClicker getAutoClicker() {
-        return GreenCloud.moduleManager == null ? null
-                : (AutoClicker) GreenCloud.moduleManager.getModule(AutoClicker.class);
+        float cameraYaw = spoofing ? savedYaw : mc.thePlayer.rotationYaw;
+        return Math.abs(MathHelper.wrapAngleTo180_double(yawToE - cameraYaw));
     }
 
     public EntityLivingBase getTarget() { return target; }
+
+    @SubscribeEvent
+    public void onRenderPlayerPre(RenderPlayerEvent.Pre event) {
+        if (!aiming || event.entityPlayer != mc.thePlayer) return;
+        EntityPlayer p = event.entityPlayer;
+        sRYO = p.renderYawOffset;
+        sRYH = p.rotationYawHead;
+        sRP = p.rotationPitch;
+        sPRYO = p.prevRenderYawOffset;
+        sPRYH = p.prevRotationYawHead;
+        sPRP = p.prevRotationPitch;
+
+        p.renderYawOffset = rotator.yaw;
+        p.rotationYawHead = rotator.yaw;
+        p.rotationPitch = rotator.pitch;
+        p.prevRenderYawOffset = prevYaw;
+        p.prevRotationYawHead = prevYaw;
+        p.prevRotationPitch = prevPitch;
+    }
+
+    @SubscribeEvent
+    public void onRenderPlayerPost(RenderPlayerEvent.Post event) {
+        if (!aiming || event.entityPlayer != mc.thePlayer) return;
+        EntityPlayer p = event.entityPlayer;
+        p.renderYawOffset = sRYO;
+        p.rotationYawHead = sRYH;
+        p.rotationPitch = sRP;
+        p.prevRenderYawOffset = sPRYO;
+        p.prevRotationYawHead = sPRYH;
+        p.prevRotationPitch = sPRP;
+    }
 
     private class KAMovementInput extends MovementInput {
         final MovementInput parent;
@@ -605,9 +447,12 @@ public class KillAura extends Module {
             this.moveForward = parent.moveForward;
             this.moveStrafe  = parent.moveStrafe;
 
-            if (!normSpoofing || !mode.is("Normal")) return;
+            if (!spoofing) {
+                correction.reset();
+                return;
+            }
 
-            MoveUtil.fixMovement(this, normYaw, normSavedYaw, parent.moveForward, parent.moveStrafe);
+            correction.apply(this, rotator.yaw, savedYaw);
         }
     }
 }

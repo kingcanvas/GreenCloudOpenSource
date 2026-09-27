@@ -3,7 +3,7 @@ package greencloudclient.com.modules.impl.utility;
 import greencloudclient.com.events.PacketEvent;
 import greencloudclient.com.modules.Category;
 import greencloudclient.com.modules.Module;
-import greencloudclient.com.modules.impl.render.HUD;
+import greencloudclient.com.modules.impl.render.ClickGUIModule;
 import greencloudclient.com.settings.BooleanSetting;
 import greencloudclient.com.settings.NumberSetting;
 import net.minecraft.client.renderer.GlStateManager;
@@ -264,7 +264,7 @@ public class FakeLag extends Module {
         
         AxisAlignedBB bb = new AxisAlignedBB(rx - 0.3, ry, rz - 0.3, rx + 0.3, ry + 1.8, rz + 0.3);
         
-        int hex = HUD.getColor();
+        int hex = ClickGUIModule.getColor();
         float r = (hex >> 16 & 0xFF) / 255.0f;
         float g = (hex >> 8 & 0xFF) / 255.0f;
         float b = (hex & 0xFF) / 255.0f;

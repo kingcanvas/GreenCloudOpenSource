@@ -1,7 +1,7 @@
 package greencloudclient.com.gui.components;
 
 import greencloudclient.com.gui.buttons.ModuleButton;
-import greencloudclient.com.modules.impl.render.HUD;
+import greencloudclient.com.modules.impl.render.ClickGUIModule;
 import greencloudclient.com.utils.font.FontUtil;
 import greencloudclient.com.utils.render.GreenRender;
 import org.lwjgl.input.Keyboard;
@@ -29,7 +29,7 @@ public class BindComponent extends Component {
         float by = y + (height / 2f) - 7f;
 
         GreenRender.fillRR(bx, by, bw, 14, 3, new Color(40, 42, 48));
-        FontUtil.getSafeSmall().drawString(text, bx + 5, by + 3, binding ? HUD.getColor() : -1);
+        FontUtil.getSafeSmall().drawString(text, bx + 5, by + 3, binding ? ClickGUIModule.getColor() : -1);
     }
 
     @Override

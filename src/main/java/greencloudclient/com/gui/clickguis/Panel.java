@@ -10,12 +10,15 @@ import greencloudclient.com.utils.render.GreenRender;
 import greencloudclient.com.utils.font.FontUtil;
 import greencloudclient.com.utils.render.shaders.BlurUtil;
 import greencloudclient.com.modules.impl.render.ClickGUIModule;
-import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 public class Panel {
+    public static final float BORDER = 1.5f;
+    private static final float CORNER = 2f;
+    private static final float ICON_SIZE = 10f;
+
     public final Category category;
     public float x, y, width, height;
     public boolean dragging, expanded = true;
@@ -25,7 +28,7 @@ public class Panel {
     private final List<ModuleButton> buttons = new ArrayList<>();
 
     public Panel(Category category, int x, int y) {
-        this.category = category; this.x = x; this.y = y; this.width = 120; this.height = 20;
+        this.category = category; this.x = x; this.y = y; this.width = 120; this.height = 18;
         List<Module> modules = GreenCloud.instance.moduleManager.getModulesInCategory(category);
         modules.sort(Comparator.comparing(Module::getName));
         for (Module m : modules) if (!m.isHidden()) buttons.add(new ModuleButton(m, this));
@@ -44,28 +47,28 @@ public class Panel {
             }
         }
 
-
         float fullListH = 0;
         for (ModuleButton b : visibleButtons) {
             fullListH += expanded ? b.getTotalHeight() : b.height;
         }
+        if (fullListH > 0) fullListH += BORDER;
 
         float currentListH = fullListH * anim;
         float totalH = height + currentListH;
+        int accent = ClickGUIModule.getColor();
 
         ClickGUIModule clickGui = GreenCloud.moduleManager.getModule(ClickGUIModule.class);
         if (clickGui != null && clickGui.blur.enabled && !BlurUtil.isFastRenderActive()) {
-            BlurUtil.blurRegionRounded(x, y, width, totalH, (float) clickGui.blurStrength.value, 6);
-            GreenRender.fillRR(x, y, width, totalH, 6, new Color(10, 10, 10, 190));
-        } else {
-            GreenRender.fillRR(x, y, width, totalH, 6, new Color(10, 10, 10, 160));
+            BlurUtil.blurRegionRounded(x, y, width, totalH, (float) clickGui.blurStrength.value, (int) CORNER);
         }
+        GreenRender.glowRR(x, y, width, totalH, CORNER, 8f, 0x60000000);
+        GreenRender.strokeRR(x, y, width, totalH, CORNER, BORDER, ClickGUIModule.getBackgroundColor(), accent);
+        GreenRender.fillRRCorners(x, y, width, height, CORNER, CORNER, currentListH > 0.5f ? 0 : CORNER, currentListH > 0.5f ? 0 : CORNER, accent);
 
-        String tabName = category.name().charAt(0) + category.name().substring(1).toLowerCase();
-        FontUtil.getSafeNormal().drawString(tabName, x + 10, y + (height - FontUtil.getSafeNormal().getHeight()) / 2f, -1);
+        drawHeader();
 
         if (anim > 0.01f && !visibleButtons.isEmpty()) {
-            GreenRender.pushScissor(x, y + height, width, currentListH);
+            GreenRender.pushScissor(x, y + height, width, currentListH - BORDER);
 
             float curY = y + height;
             for (int i = 0; i < visibleButtons.size(); i++) {
@@ -77,6 +80,48 @@ public class Panel {
             }
 
             GreenRender.popScissor();
+        }
+    }
+
+    private void drawHeader() {
+        String title = category.getDisplayName();
+        FontUtil.SafeFont font = FontUtil.getSafeLarge();
+        float gap = 4f;
+        float contentW = ICON_SIZE + gap + font.getWidth(title);
+        float left = x + (width - contentW) / 2f;
+        float cy = y + height / 2f;
+
+        drawIcon(category, left + ICON_SIZE / 2f, cy, 0xFFFFFFFF);
+        font.drawString(title, left + ICON_SIZE + gap, cy - font.getHeight() / 2f, 0xFFFFFFFF);
+    }
+
+    private static void drawIcon(Category category, float cx, float cy, int color) {
+        float t = 1.3f;
+        switch (category) {
+            case COMBAT:
+                GreenRender.drawLine(cx - 1.5f, cy + 1.5f, cx + 4.5f, cy - 4.5f, t, color);
+                GreenRender.drawLine(cx - 3.5f, cy - 0.5f, cx + 0.5f, cy + 3.5f, t, color);
+                GreenRender.drawLine(cx - 1.5f, cy + 1.5f, cx - 4.5f, cy + 4.5f, t, color);
+                break;
+            case RENDER:
+                GreenRender.outlineRR(cx - 5f, cy - 3.2f, 10f, 6.4f, 3.2f, t, color);
+                GreenRender.fillCircle(cx, cy, 1.7f, color);
+                break;
+            case MOVEMENT:
+                GreenRender.fillCircle(cx + 1.8f, cy - 4f, 1.4f, color);
+                GreenRender.drawLine(cx + 0.8f, cy - 1.8f, cx - 0.4f, cy + 1.4f, t, color);
+                GreenRender.drawLine(cx - 2.8f, cy - 0.6f, cx + 0.8f, cy - 1.8f, t, color);
+                GreenRender.drawLine(cx + 0.8f, cy - 1.8f, cx + 3f, cy + 0.2f, t, color);
+                GreenRender.drawLine(cx - 0.4f, cy + 1.4f, cx + 2.2f, cy + 2.8f, t, color);
+                GreenRender.drawLine(cx + 2.2f, cy + 2.8f, cx + 2.2f, cy + 5f, t, color);
+                GreenRender.drawLine(cx - 0.4f, cy + 1.4f, cx - 3.2f, cy + 4.6f, t, color);
+                break;
+            case UTILITY:
+                GreenRender.outlineRR(cx - 2.3f, cy - 5f, 4.6f, 4.6f, 2.3f, t, color);
+                GreenRender.outlineRR(cx - 4.5f, cy + 0.8f, 9f, 5f, 2.5f, t, color);
+                break;
+            default:
+                GreenRender.fillCircle(cx, cy, 2f, color);
         }
     }
 

@@ -17,7 +17,7 @@ import java.util.List;
 
 public class Trajectories extends Module {
 
-    private final BooleanSetting useHudColor = new BooleanSetting("Use HUD Color", this, true);
+    private final BooleanSetting useHudColor = new BooleanSetting("Use Accent Color", this, true);
     private final ColorSetting customColor = new ColorSetting("Color", this, new Color(0, 255, 255), () -> !useHudColor.enabled);
 
     public Trajectories() {
@@ -107,8 +107,7 @@ public class Trajectories extends Module {
         float r, g, b;
 
         if (useHudColor.enabled) {
-            HUD hud = GreenCloud.moduleManager.getModule(HUD.class);
-            int hudColor = hud != null ? hud.hudColor.getColor() : new Color(0, 255, 255).getRGB();
+            int hudColor = ClickGUIModule.getColor();
             Color color = new Color(hudColor);
             r = color.getRed() / 255f;
             g = color.getGreen() / 255f;

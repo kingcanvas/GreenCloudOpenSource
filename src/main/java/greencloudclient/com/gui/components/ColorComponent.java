@@ -46,7 +46,7 @@ public class ColorComponent extends Component {
         pickerAnim.animateTo(expanded ? PICKER_H : 0f, expanded ? 250 : 200, expanded ? Easing.EASE_OUT_QUART : Easing.EASE_OUT_CUBIC);
         float anim = pickerAnim.update();
 
-        FontUtil.getSafeSmall().drawString(colorSetting.name, x + 12, y + 4, -1);
+        FontUtil.getSafeSmall().drawString(fitLabel(colorSetting.name, width - 38f), x + 12, y + 4, -1);
 
         float previewSize = 10f;
         GreenRender.fillRR(x + width - 20f, y + 3f, previewSize, previewSize, 2f, colorSetting.getColor());

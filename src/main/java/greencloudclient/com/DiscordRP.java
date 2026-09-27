@@ -27,6 +27,11 @@ public class DiscordRP {
         if (running) return;
         this.created = System.currentTimeMillis();
 
+        if (isProvidedByLauncher()) {
+            GreenCloud.logger.warn("Discord RPC is already provided by the launcher, skipping GreenCloud Discord RPC");
+            return;
+        }
+
         try {
             DiscordEventHandlers handlers = new DiscordEventHandlers.Builder().build();
             DiscordRPC.discordInitialize(CLIENT_ID, handlers, true);
@@ -40,6 +45,15 @@ public class DiscordRP {
             executor.scheduleAtFixedRate(this::updateStatus, 0, 2, TimeUnit.SECONDS);
         } catch (Throwable t) {
             GreenCloud.logger.error("Failed to start Discord RPC! Disabling Discord RPC", t);
+        }
+    }
+
+    private static boolean isProvidedByLauncher() {
+        try {
+            Class<?> systemCopy = Class.forName(DiscordRPC.class.getName(), false, ClassLoader.getSystemClassLoader());
+            return systemCopy != DiscordRPC.class;
+        } catch (ClassNotFoundException e) {
+            return false;
         }
     }
 

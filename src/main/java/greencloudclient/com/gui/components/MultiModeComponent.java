@@ -1,7 +1,7 @@
 package greencloudclient.com.gui.components;
 
 import greencloudclient.com.gui.buttons.ModuleButton;
-import greencloudclient.com.modules.impl.render.HUD;
+import greencloudclient.com.modules.impl.render.ClickGUIModule;
 import greencloudclient.com.settings.MultiModeSetting;
 import greencloudclient.com.utils.font.FontUtil;
 import greencloudclient.com.utils.render.GreenRender;
@@ -32,14 +32,13 @@ public class MultiModeComponent extends Component {
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         float fontHeight = FontUtil.getSafeSmall().getHeight();
         float middleY = y + (HEADER_H - fontHeight) / 2f;
-        FontUtil.getSafeSmall().drawString(multiMode.name, x + PAD_X, middleY, -1);
-
         List<String> selectedModes = multiMode.getSelectedModes();
         String value = selectedModes.size() > 1 ? String.valueOf(selectedModes.size()) : multiMode.getDisplayValue();
         float valueWidth = FontUtil.getSafeSmall().getStringWidth(value) + 12f;
         float valueX = x + width - valueWidth - PAD_X;
+        FontUtil.getSafeSmall().drawString(fitLabel(multiMode.name, valueX - x - PAD_X - 6f), x + PAD_X, middleY, -1);
         float valueY = y + HEADER_H / 2f - 9f;
-        Color accent = new Color(HUD.getColor(), true);
+        Color accent = new Color(ClickGUIModule.getColor(), true);
         GreenRender.fillRR(valueX - 1f, valueY - 1f, valueWidth + 2f, 19f, 4f,
                 new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 180));
         GreenRender.fillRR(valueX, valueY, valueWidth, 17f, 3f, new Color(35, 37, 42));

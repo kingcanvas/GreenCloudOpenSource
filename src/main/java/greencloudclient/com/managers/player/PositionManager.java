@@ -1,6 +1,6 @@
 package greencloudclient.com.managers.player;
 
-import greencloudclient.com.modules.impl.render.HUD;
+import greencloudclient.com.modules.impl.render.ClickGUIModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiScreen;
@@ -67,7 +67,7 @@ public class PositionManager extends GuiScreen {
     
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        Color accent = new Color(HUD.getColor(), true);
+        Color accent = new Color(ClickGUIModule.getColor(), true);
         
         greencloudclient.com.utils.font.FontUtil.getSafeNormal().drawString("Position Editor", 10, 10, accent.getRGB());
         greencloudclient.com.utils.font.FontUtil.getSafeNormal().drawString("Press ESC to save and exit", 10, 22, new Color(150, 150, 150).getRGB());

@@ -72,7 +72,7 @@ public class Breadcrumbs extends Module {
         Tessellator tessellator = Tessellator.getInstance();
         WorldRenderer worldRenderer = tessellator.getWorldRenderer();
 
-        Color hudColor = GreenCloud.moduleManager.getModule(HUD.class).hudColor.getColorObject();
+        Color hudColor = new Color(ClickGUIModule.getColor());
         int r = hudColor.getRed();
         int g = hudColor.getGreen();
         int b = hudColor.getBlue();

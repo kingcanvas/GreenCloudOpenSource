@@ -1,9 +1,9 @@
 package greencloudclient.com.modules.impl.combat;
 
-import greencloudclient.com.managers.notification.NotificationManager;
 import greencloudclient.com.modules.Category;
 import greencloudclient.com.modules.Module;
 import greencloudclient.com.settings.BooleanSetting;
+import greencloudclient.com.settings.ModeSetting;
 import greencloudclient.com.settings.MultiModeSetting;
 import greencloudclient.com.settings.NumberSetting;
 import net.minecraft.entity.player.EntityPlayer;
@@ -19,7 +19,8 @@ public class AimAssist extends Module {
     
     public static AimAssist instance;
     
-    private final NumberSetting speed = new NumberSetting("Speed", this, 3.5, 1, 255, 0.1);
+    private final ModeSetting mode = new ModeSetting("Mode", this, "Normal", "Normal", "Blatant");
+    private final NumberSetting speed = new NumberSetting("Speed", this, 5.0, 1.0, 10.0, 0.1, () -> mode.is("Normal"));
     private final NumberSetting fov = new NumberSetting("FOV", this, 30, 90, 1.0, 360, 0.5, true);
     private final NumberSetting range = new NumberSetting("Range", this, 4.5, 1, 8, 0.1);
     private final MultiModeSetting aimingParts = new MultiModeSetting("Aiming Parts", this,
@@ -27,10 +28,13 @@ public class AimAssist extends Module {
     private final BooleanSetting requireWeapon = new BooleanSetting("Require Weapon", this, true);
     private final BooleanSetting teammateCheck = new BooleanSetting("Teammate Check", this, true);
     private final BooleanSetting breakBlocks = new BooleanSetting("Break Blocks", this, true);
-    private final BooleanSetting noise = new BooleanSetting("Noise", this, true);
-    private final NumberSetting noiseAmount = new NumberSetting("Noise Amount", this, 0.3, 0.0, 1.0, 0.05, () -> noise.enabled);
+    private final BooleanSetting noise = new BooleanSetting("Noise", this, true, () -> mode.is("Normal"));
+    private final NumberSetting noiseAmount = new NumberSetting("Noise Amount", this, 0.3, 0.0, 1.0, 0.05,
+            () -> mode.is("Normal") && noise.enabled);
     
-    private boolean hasWarned = false;
+    private EntityPlayer aimTarget;
+    private long lastFrameNanos = -1L;
+    private float residualYaw, residualPitch;
     private final Random random = new Random();
     private EntityPlayer noiseTarget;
     private double currentOffsetX;
@@ -47,108 +51,95 @@ public class AimAssist extends Module {
     public AimAssist() {
         super("AimAssist", Category.COMBAT);
         instance = this;
-        addSettings(speed, fov, range, aimingParts, requireWeapon, teammateCheck, breakBlocks, noise, noiseAmount);
+        addSettings(mode, speed, fov, range, aimingParts, requireWeapon, teammateCheck, breakBlocks, noise, noiseAmount);
     }
     
     @Override
     public void onEnable() {
         super.onEnable();
-        hasWarned = false;
+        aimTarget = null;
+        lastFrameNanos = -1L;
+        residualYaw = residualPitch = 0f;
         resetNoise();
-        checkSpeedWarning();
     }
     
     @SubscribeEvent
     public void onTick(TickEvent.ClientTickEvent event) {
-        if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) return;
-        
-        checkSpeedWarning();
-        
-        if (event.phase == TickEvent.Phase.END) tickNormal();
-    }
-    
-    private void checkSpeedWarning() {
-        if (speed.getValue() > 20 && !hasWarned) {
-            NotificationManager.getInstance().addNotification(
-                    "AimAssist",
-                    "higher then 20 speed we fr.",
-                    NotificationManager.NotificationType.WARNING,
-                    2500
-            );
-            hasWarned = true;
-        } else if (speed.getValue() <= 20 && hasWarned) {
-            hasWarned = false;
-        }
-    }
-    
-    private void tickNormal() {
-        if (!mc.gameSettings.keyBindAttack.isKeyDown() || !passesWeaponCheck()) return;
-        
-        if (breakBlocks.enabled) {
-            if (mc.playerController.getIsHittingBlock()) return;
-            
-            if (mc.objectMouseOver != null
-                    && mc.objectMouseOver.typeOfHit == net.minecraft.util.MovingObjectPosition.MovingObjectType.BLOCK) {
-                return;
-            }
-        }
-        
-        EntityPlayer target = getBestTarget();
-        if (target == null) {
-            resetNoise();
+        if (event.phase != TickEvent.Phase.END) return;
+        if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null || !canAim()) {
+            aimTarget = null;
             return;
         }
 
-        double[] aimPoint = getAimPoint(target);
-        
-        float[] rots = getRotations(
-                aimPoint[0],
-                aimPoint[1],
-                aimPoint[2]
-        );
-        
-        float yawDiff = wrapDeg(rots[0] - mc.thePlayer.rotationYaw);
-        float pitDiff = rots[1] - mc.thePlayer.rotationPitch;
-        
-        float gcd = getGCD();
-        
-        if (Math.abs(yawDiff) < gcd * 0.5f
-                && Math.abs(pitDiff) < gcd * 0.5f) {
+        aimTarget = getBestTarget();
+        if (aimTarget == null) {
+            resetNoise();
             return;
         }
-        
-        float spd = (float) speed.getValue();
-        float distFactor = MathHelper.clamp_float(
-                Math.abs(yawDiff) / 20f,
-                0.2f,
-                1.0f
-        );
-        
-        float baseMove = spd * distFactor;
-        
-        float moveYaw = MathHelper.clamp_float(
-                yawDiff,
-                -baseMove,
-                baseMove
-        );
-        
-        float movePitch = MathHelper.clamp_float(
-                pitDiff,
-                -baseMove,
-                baseMove
-        );
-        
-        mc.thePlayer.rotationYaw += snapToGCD(
-                moveYaw,
-                yawDiff,
-                gcd
-        );
-        
-        mc.thePlayer.rotationPitch += snapToGCD(
-                movePitch,
-                pitDiff,
-                gcd
-        );
+        getAimPoint(aimTarget);
+    }
+
+    @SubscribeEvent
+    public void onRenderTick(TickEvent.RenderTickEvent event) {
+        if (event.phase != TickEvent.Phase.START) return;
+        long now = System.nanoTime();
+        float dt = lastFrameNanos < 0 ? 0f : Math.min(0.1f, (now - lastFrameNanos) / 1e9f);
+        lastFrameNanos = now;
+
+        if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) return;
+        if (aimTarget == null || aimTarget.isDead || !canAim()) {
+            residualYaw = residualPitch = 0f;
+            return;
+        }
+
+        float pt = event.renderTickTime;
+        EntityPlayer t = aimTarget;
+        double tx = t.lastTickPosX + (t.posX - t.lastTickPosX) * pt;
+        double ty = t.lastTickPosY + (t.posY - t.lastTickPosY) * pt;
+        double tz = t.lastTickPosZ + (t.posZ - t.lastTickPosZ) * pt;
+        boolean blatant = mode.is("Blatant");
+        double[] point = blatant
+                ? new double[]{tx, ty + t.height * getAimingPartHeight(), tz}
+                : new double[]{tx + currentOffsetX, ty + t.height * currentHeightFactor, tz + currentOffsetZ};
+
+        float[] rots = getRotations(point[0], point[1], point[2], pt);
+        float yawDiff = wrapDeg(rots[0] - mc.thePlayer.rotationYaw);
+        float pitDiff = rots[1] - mc.thePlayer.rotationPitch;
+
+        float moveYaw, movePitch;
+        if (blatant) {
+            moveYaw = yawDiff;
+            movePitch = pitDiff;
+            residualYaw = residualPitch = 0f;
+        } else {
+            float rate = 2f + (float) speed.getValue() * 2.8f;
+            float ease = 1f - (float) Math.exp(-rate * dt);
+            moveYaw = yawDiff * ease + residualYaw;
+            movePitch = pitDiff * ease + residualPitch;
+        }
+
+        float gcd = getGCD();
+        float snappedYaw = snapToGCD(moveYaw, yawDiff, gcd);
+        float snappedPitch = snapToGCD(movePitch, pitDiff, gcd);
+        if (!blatant) {
+            residualYaw = MathHelper.clamp_float(moveYaw - snappedYaw, -gcd, gcd);
+            residualPitch = MathHelper.clamp_float(movePitch - snappedPitch, -gcd, gcd);
+        }
+        if (snappedYaw == 0f && snappedPitch == 0f) return;
+
+        mc.thePlayer.setAngles(snappedYaw / 0.15f, -snappedPitch / 0.15f);
+    }
+
+    private boolean canAim() {
+        if (!mc.gameSettings.keyBindAttack.isKeyDown() || !passesWeaponCheck()) return false;
+        if (breakBlocks.enabled) {
+            if (mc.playerController.getIsHittingBlock()) return false;
+            if (mc.objectMouseOver != null
+                    && mc.objectMouseOver.typeOfHit == net.minecraft.util.MovingObjectPosition.MovingObjectType.BLOCK) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private double[] getAimPoint(EntityPlayer target) {
@@ -303,9 +294,14 @@ public class AimAssist extends Module {
     }
     
     private float[] getRotations(double x, double y, double z) {
-        double dx = x - mc.thePlayer.posX;
-        double dy = y - (mc.thePlayer.posY + mc.thePlayer.getEyeHeight());
-        double dz = z - mc.thePlayer.posZ;
+        return getRotations(x, y, z, 1f);
+    }
+
+    private float[] getRotations(double x, double y, double z, float pt) {
+        double dx = x - (mc.thePlayer.lastTickPosX + (mc.thePlayer.posX - mc.thePlayer.lastTickPosX) * pt);
+        double dy = y - (mc.thePlayer.lastTickPosY + (mc.thePlayer.posY - mc.thePlayer.lastTickPosY) * pt
+                + mc.thePlayer.getEyeHeight());
+        double dz = z - (mc.thePlayer.lastTickPosZ + (mc.thePlayer.posZ - mc.thePlayer.lastTickPosZ) * pt);
         double dist = Math.sqrt(dx * dx + dz * dz);
         
         return new float[]{

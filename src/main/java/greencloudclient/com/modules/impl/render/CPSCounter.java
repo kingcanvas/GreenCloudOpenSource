@@ -135,7 +135,7 @@ public class CPSCounter extends Module {
         el.width = (int) width;
         el.height = (int) height;
 
-        int color = colorMode.is("HUD") ? HUD.getColor() : customColor.getColor();
+        int color = colorMode.is("HUD") ? ClickGUIModule.getColor() : customColor.getColor();
 
         if (background.enabled) {
             if (blur.enabled) {

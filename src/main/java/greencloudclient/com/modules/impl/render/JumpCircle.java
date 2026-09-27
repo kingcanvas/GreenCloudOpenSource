@@ -29,7 +29,7 @@ public class JumpCircle extends Module {
     public ModeSetting mode = new ModeSetting("Mode", this, "Disc", "Disc", "Ring");
     public NumberSetting radius = new NumberSetting("Radius", this, 2.5, 0.5, 5.0, 0.1);
     public NumberSetting lifeTime = new NumberSetting("Duration", this, 25, 10, 100, 1);
-    public BooleanSetting useHudColors = new BooleanSetting("Use HUD Colors", this, true);
+    public BooleanSetting useHudColors = new BooleanSetting("Use Accent Color", this, true);
     public ColorSetting color = new ColorSetting("Color", this, new Color(0, 255, 150), () -> !useHudColors.enabled);
     public BooleanSetting glow = new BooleanSetting("Glow", this, false);
 
@@ -105,9 +105,8 @@ public class JumpCircle extends Module {
         Tessellator tessellator = Tessellator.getInstance();
         WorldRenderer renderer = tessellator.getWorldRenderer();
 
-        HUD hud = GreenCloud.moduleManager.getModule(HUD.class);
-        int hudC1 = hud != null ? hud.hudColor.getColor() : 0xFF6599EF;
-        int hudC2 = hud != null ? hud.color2.getColor() : 0xFF9965EF;
+        int hudC1 = ClickGUIModule.getColor();
+        int hudC2 = ClickGUIModule.getSecondaryColor();
 
         for (Circle c : circles) {
             double x = c.vec.xCoord - mc.getRenderManager().viewerPosX;

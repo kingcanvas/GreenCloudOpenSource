@@ -3,7 +3,6 @@ package greencloudclient.com.gui.clickguis;
 import greencloudclient.com.GreenCloud;
 import greencloudclient.com.modules.Category;
 import greencloudclient.com.modules.Module;
-import greencloudclient.com.modules.impl.render.HUD;
 import greencloudclient.com.settings.BooleanSetting;
 import greencloudclient.com.settings.ColorSetting;
 import greencloudclient.com.settings.ModeSetting;
@@ -98,7 +97,7 @@ public class KingCanvasGUI extends GuiScreen {
     }
     
     private Color getAccentColor() {
-        return new Color(HUD.getColor(), true);
+        return new Color(ClickGUIModule.getColor(), true);
     }
     
     @Override
@@ -293,7 +292,7 @@ public class KingCanvasGUI extends GuiScreen {
                     if (setting instanceof BooleanSetting) {
                         BooleanSetting bool = (BooleanSetting) setting;
                         FontUtil.getSafeNormal().drawStringWithShadow(setting.name, x + 15, settingRowY + 6, textColor.getRGB());
-                        drawToggleButton(x + mainPanelWidth - 25, settingRowY + 6, bool.enabled);
+                        drawToggleButton(x + mainPanelWidth - 37, settingRowY + 4, bool.enabled);
                     } else if (setting instanceof ModeSetting) {
                         ModeSetting mode = (ModeSetting) setting;
                         FontUtil.getSafeNormal().drawStringWithShadow(setting.name + ": " + mode.currentMode, x + 15, settingRowY + 6, textColor.getRGB());
@@ -314,9 +313,9 @@ public class KingCanvasGUI extends GuiScreen {
                             int maxSliderWidth = (int) (sliderTotalWidth * maxPercent);
                             
                             GreenRender.fillRR(sliderX, settingRowY + 17, sliderTotalWidth, 4, 2f, subtleTextColor.darker());
-                            GreenRender.fillRR(sliderX + minSliderWidth, settingRowY + 17, maxSliderWidth - minSliderWidth, 4, 2f, accentColor);
-                            GreenRender.fillCircle(sliderX + minSliderWidth, settingRowY + 19, 4, Color.WHITE);
-                            GreenRender.fillCircle(sliderX + maxSliderWidth, settingRowY + 19, 4, Color.WHITE);
+                            GreenRender.fillRR(sliderX + minSliderWidth, settingRowY + 17, Math.max(4, maxSliderWidth - minSliderWidth), 4, 2f, accentColor);
+                            drawSliderKnob(sliderX + minSliderWidth, settingRowY + 19);
+                            drawSliderKnob(sliderX + maxSliderWidth, settingRowY + 19);
                         } else {
                             FontUtil.getSafeNormal().drawStringWithShadow(number.name + ": " + number.getRoundedValue(), x + 15, settingRowY + 4, textColor.getRGB());
                             int sliderTotalWidth = mainPanelWidth - 30;
@@ -325,8 +324,8 @@ public class KingCanvasGUI extends GuiScreen {
                             int sliderWidth = (int) (sliderTotalWidth * percent);
                             
                             GreenRender.fillRR(sliderX, settingRowY + 17, sliderTotalWidth, 4, 2f, subtleTextColor.darker());
-                            GreenRender.fillRR(sliderX, settingRowY + 17, sliderWidth, 4, 2f, accentColor);
-                            GreenRender.fillCircle(sliderX + sliderWidth, settingRowY + 19, 4, Color.WHITE);
+                            if (sliderWidth > 0) GreenRender.fillRR(sliderX, settingRowY + 17, Math.max(4, sliderWidth), 4, 2f, accentColor);
+                            drawSliderKnob(sliderX + sliderWidth, settingRowY + 19);
                         }
                         y += 8;
                     } else if (setting instanceof ColorSetting) {
@@ -466,16 +465,17 @@ public class KingCanvasGUI extends GuiScreen {
     }
     
     private void drawToggleButton(int x, int y, boolean enabled) {
-        Color accentColor = getAccentColor();
-        int toggleWidth = 14;
-        int toggleHeight = 8;
-        GreenRender.fillRR(x, y, toggleWidth, toggleHeight, 4f, itemColor);
-        int handleSize = 6;
-        if(enabled) {
-            GreenRender.fillRR(x + toggleWidth - handleSize - 1, y + 1, handleSize, handleSize, 3f, accentColor);
-        } else {
-            GreenRender.fillRR(x + 1, y + 1, handleSize, handleSize, 3f, new Color(50, 50, 50));
-        }
+        float w = 22, h = 12, knobR = 4f;
+        GreenRender.fillRR(x, y, w, h, h / 2f, enabled ? getAccentColor().getRGB() : 0xFF303036);
+        float kx = enabled ? x + w - h / 2f : x + h / 2f;
+        GreenRender.glowRR(kx - knobR, y + h / 2f - knobR + 0.5f, knobR * 2, knobR * 2, knobR, 2f, 0x60000000);
+        GreenRender.fillCircle(kx, y + h / 2f, knobR, 0xFFFFFFFF);
+    }
+
+    private void drawSliderKnob(float cx, float cy) {
+        float r = 5f;
+        GreenRender.glowRR(cx - r, cy - r + 0.5f, r * 2, r * 2, r, 2.5f, 0x70000000);
+        GreenRender.fillCircle(cx, cy, r, 0xFFFFFFFF);
     }
     
     @Override
@@ -605,9 +605,7 @@ public class KingCanvasGUI extends GuiScreen {
                         
                         if (isMouseOver(mouseX, mouseY, mainX, (int)currentY, mainPanelWidth, settingRowHeight)) {
                             if (setting instanceof BooleanSetting) {
-                                if(isMouseOver(mouseX, mouseY, mainX + mainPanelWidth - 25, (int)currentY + 6, 14, 8)) {
-                                    ((BooleanSetting) setting).toggle();
-                                }
+                                ((BooleanSetting) setting).toggle();
                             }
                             if (setting instanceof ModeSetting) {
                                 ((ModeSetting) setting).cycle();

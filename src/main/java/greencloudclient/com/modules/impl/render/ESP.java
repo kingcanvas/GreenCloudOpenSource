@@ -26,7 +26,7 @@ public class ESP extends Module {
     public static ESP instance;
 
     public ModeSetting mode = new ModeSetting ("Mode", this, "2D", "2D", "3D");
-    public BooleanSetting useHudColor = new BooleanSetting("Use HUD Color", this, true);
+    public BooleanSetting useHudColor = new BooleanSetting("Use Accent Color", this, true);
     public ColorSetting customColor = new ColorSetting  ("Color", this, new Color(255, 0, 0)) {
         @Override public boolean isVisible() {
             return !useHudColor.enabled;
@@ -57,8 +57,7 @@ public class ESP extends Module {
 
     private Color getColor() {
         if (useHudColor.enabled) {
-            HUD hud = GreenCloud.moduleManager.getModule(HUD.class);
-            return new Color(hud != null ? hud.getHudColor() : Color.RED.getRGB());
+            return new Color(ClickGUIModule.getColor());
         }
         return new Color(customColor.getColor());
     }

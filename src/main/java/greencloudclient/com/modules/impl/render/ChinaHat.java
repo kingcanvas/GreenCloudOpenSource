@@ -54,12 +54,7 @@ public class ChinaHat extends Module {
         
         Color c;
         if (useHudColor.enabled) {
-            HUD hud = GreenCloud.moduleManager.getModule(HUD.class);
-            if (hud != null) {
-                c = new Color(hud.hudColor.getColor());
-            } else {
-                c = hatColor.getColorObject();
-            }
+            c = new Color(ClickGUIModule.getColor());
         } else {
             c = hatColor.getColorObject();
         }

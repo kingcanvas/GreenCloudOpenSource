@@ -3,15 +3,12 @@ package greencloudclient.com.gui.buttons;
 import greencloudclient.com.GreenCloud;
 import greencloudclient.com.gui.clickguis.Panel;
 import greencloudclient.com.gui.components.*;
-import greencloudclient.com.gui.components.*;
 import greencloudclient.com.modules.Module;
-import greencloudclient.com.modules.impl.render.HUD;
 import greencloudclient.com.settings.*;
 import greencloudclient.com.utils.animation.animations.EasingAnimation;
 import greencloudclient.com.utils.animation.animations.EasingAnimation.Easing;
 import greencloudclient.com.utils.font.FontUtil;
 import greencloudclient.com.utils.render.GreenRender;
-import greencloudclient.com.utils.render.shaders.BlurUtil;
 import greencloudclient.com.modules.impl.render.ClickGUIModule;
 import net.minecraft.client.renderer.GlStateManager;
 import java.awt.Color;
@@ -51,8 +48,7 @@ public class ModuleButton {
     }
 
     public void drawScreen(int mx, int my, float pt) {
-        HUD hud = GreenCloud.instance.moduleManager.getModule(HUD.class);
-        Color accent = hud != null ? new Color(hud.getHudColor()) : new Color(232, 97, 160);
+        Color accent = new Color(ClickGUIModule.getColor());
 
         boolean isNowToggled = module.isToggled();
 
@@ -81,43 +77,30 @@ public class ModuleButton {
                              targetH > expandAnim.getValue() ? Easing.EASE_OUT_QUART : Easing.EASE_OUT_CUBIC);
         float eAnim = expandAnim.update();
 
-        float rounding = (isLast && eAnim < 1.0f) ? 6.0f : 0.0f;
-        float fillH = isLast ? height : height + 1f;
+        float rowX = x + Panel.BORDER, rowW = width - Panel.BORDER * 2;
 
         if (tAnim > 0.01f) {
-            GreenRender.fillRRCornersHard(x, y, width, fillH, 0, 0, rounding, rounding,
-                    GreenRender.withAlpha(accent, tAnim * 0.45f));
+            GreenRender.fillRect(rowX, y, rowW, height, GreenRender.withAlpha(accent, tAnim));
         }
-
         if (hAnim > 0.01f) {
-            GreenRender.fillRRCornersHard(x, y, width, fillH, 0, 0, rounding, rounding,
-                    new Color(255, 255, 255, (int)(hAnim * 22)));
+            GreenRender.fillRect(rowX, y, rowW, height, new Color(255, 255, 255, (int) (hAnim * 16)));
         }
-
-
         if (fadeVal > 0.01f) {
-            GreenRender.fillRRCornersHard(x, y, width, fillH, 0, 0, rounding, rounding,
-                    new Color(255, 255, 255, (int)(fadeVal * 180)));
+            GreenRender.fillRect(rowX, y, rowW, height, new Color(255, 255, 255, (int) (fadeVal * 120)));
         }
 
         GlStateManager.enableTexture2D();
-        float textY = y + (height - FontUtil.getSafeNormal().getHeight()) / 2f;
-        FontUtil.getSafeNormal().drawString(module.getName(), x + 8, textY, -1);
+        FontUtil.SafeFont font = FontUtil.getSafeNormal();
+        float textY = y + (height - font.getHeight()) / 2f;
+        font.drawString(module.getName(), x + 6, textY, -1);
+        String indicator = expanded ? "-" : "+";
+        font.drawString(indicator, x + width - 8 - font.getWidth(indicator), textY, 0xFFE0E0E0);
 
         if (eAnim > 1f) {
             float curY = y + height;
             GreenRender.pushScissor(x, curY, width, eAnim);
 
-            float expandedRounding = isLast ? 6.0f : 0.0f;
-            ClickGUIModule clickGui = GreenCloud.moduleManager.getModule(ClickGUIModule.class);
-            if (clickGui != null && clickGui.blur.enabled && !BlurUtil.isFastRenderActive()) {
-                BlurUtil.blurRegionRounded(x, curY, width, eAnim, (float) clickGui.blurStrength.value, (int) expandedRounding);
-                GreenRender.fillRRCorners(x, curY, width, eAnim, 0, 0, expandedRounding, expandedRounding,
-                        new Color(15, 15, 18, 180));
-            } else {
-                GreenRender.fillRRCorners(x, curY, width, eAnim, 0, 0, expandedRounding, expandedRounding,
-                        new Color(15, 15, 18, 160));
-            }
+            GreenRender.fillRect(x + Panel.BORDER, curY, width - Panel.BORDER * 2, eAnim, 0x40000000);
 
             float setY = curY + 4f;
             for (Component c : components) {

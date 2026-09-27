@@ -3,7 +3,7 @@ package greencloudclient.com.managers.notification;
 import greencloudclient.com.GreenCloud;
 import greencloudclient.com.managers.notification.model.Notification;
 import greencloudclient.com.managers.notification.render.NotificationRenderer;
-import greencloudclient.com.modules.impl.render.HUD;
+import greencloudclient.com.modules.impl.render.ClickGUIModule;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -28,8 +28,7 @@ public class NotificationManager {
     }
 
     public void addNotification(String title, String message, NotificationType type, int durationMs) {
-        HUD hudModule = GreenCloud.moduleManager.getModule(HUD.class);
-        if (hudModule == null || !hudModule.isToggled()) return;
+        if (!ClickGUIModule.notificationsEnabled()) return;
         notifications.add(new Notification(title, message, type, durationMs));
     }
 
