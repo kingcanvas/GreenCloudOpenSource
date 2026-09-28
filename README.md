@@ -4,6 +4,8 @@ Yeah, greencloudclient opensourced your welcome. just for you skidders (jk).
 # Active Developers
 For rn:
 - kingcanvas (_kingdev.)
+- SparkyEclipseXD
+- Claude (I guess?) 
 
 # Contributors
 Contributors to the project:
